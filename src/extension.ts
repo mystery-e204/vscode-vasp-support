@@ -6,7 +6,7 @@ import * as cheerio from 'cheerio';
 const TurndownService = require('turndown');
 const turndownPluginGfm = require('@joplin/turndown-plugin-gfm');
 
-function filterHTML(html: string): string {
+function filterHtml(html: string): string {
 	const $ = cheerio.load(html);
 	let elems = $("#mw-content-text p:first");
 
@@ -40,7 +40,11 @@ function formatDefault(markdown: string, word: string): string {
 }
 
 function formatDescription(markdown: string, word: string): string {
-	return markdown.replace(RegExp("^ *Description: *", "m"), "---\n\n## Description\n\n");
+	return markdown.replace(/^ *Description: */m, "---\n\n## Description\n\n");
+}
+
+function fixWikiLinks(markdown: string, baseUrl: string): string {
+	return markdown.replace(/\]\((\/wiki\/[^\)]+)\)/g, "](" + baseUrl + "$1)");
 }
 
 // this method is called when your extension is activated
@@ -54,9 +58,10 @@ export function activate(context: vscode.ExtensionContext) {
 			if (word === "IBRION") {
 				return axios.get("https://www.vasp.at/wiki/index.php/IBRION")
 					.then((response) => {
-						let markdown = convertToMarkdown(filterHTML(response.data), word);
+						let markdown = convertToMarkdown(filterHtml(response.data), word);
 						markdown = formatDefault(markdown, word);
 						markdown = formatDescription(markdown, word);
+						markdown = fixWikiLinks(markdown, "https://www.vasp.at");
 						return new vscode.Hover(markdown);
 					}, null);
 			}
