@@ -1,25 +1,54 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
+import axios from 'axios';
+import * as cheerio from 'cheerio';
+const TurndownService = require('turndown');
+const turndownPluginGfm = require('@joplin/turndown-plugin-gfm');
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-	
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "incar-support" is now active!');
+	vscode.languages.registerHoverProvider("plaintext", {
+		provideHover(document, position, token) {
+			const range = document.getWordRangeAtPosition(position);
+			const word = document.getText(range);
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	let disposable = vscode.commands.registerCommand('incar-support.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from INCAR Support!');
+			if (word === "IBRION") {
+				return axios.get("https://www.vasp.at/wiki/index.php/IBRION")
+					.then((response) => {
+						const $ = cheerio.load(response.data);
+						let elems = $("#mw-content-text p:first");
+
+						let htmlString = elems.html();
+						elems.nextUntil("hr").each((i, el) => {
+							htmlString += $.html(el);
+						});
+
+						const turndownService = new TurndownService({
+							emDelimiter: "*",
+							hr: "---"
+						});
+						turndownService.use(turndownPluginGfm.tables);
+
+						let markdown: string = "# " + word + "\n\n";
+						markdown += turndownService.turndown(htmlString);
+
+						const match = markdown.match(RegExp("(.*?) *Default: *(\\**" + word + "\\**)? *(.*)", "s"));
+						if (match !== null) {
+							markdown = match[1].replace(/(.*)\n\n/s, "$1\n\n---\n\n## Default\n\n") + match[3];
+						}
+
+						console.log(markdown);
+						markdown = markdown.replace(RegExp("^ *Description: *", "m"), "---\n\n## Description\n\n");
+
+						return new vscode.Hover(markdown);
+					}, null);
+			}
+
+			return null;
+		}
 	});
-
-	context.subscriptions.push(disposable);
 }
 
 // this method is called when your extension is deactivated
