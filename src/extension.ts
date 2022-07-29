@@ -32,7 +32,7 @@ function convertToMarkdown(html: string, word: string): string {
 }
 
 function formatDefault(markdown: string, word: string): string {
-	const match = markdown.match(RegExp("(.*?) *Default: *(\\**" + word + "\\**)? *(.*)", "s"));
+	const match = markdown.match(RegExp(`(.*?) *Default: *(\\**${word}\\**)? *(.*)`, "s"));
 	if (match !== null) {
 		return match[1].replace(/(.*)\n\n/s, "$1\n\n---\n\n## Default\n\n") + match[3];
 	}
@@ -44,7 +44,7 @@ function formatDescription(markdown: string, word: string): string {
 }
 
 function fixWikiLinks(markdown: string, baseUrl: string): string {
-	return markdown.replace(/\]\((\/wiki\/[^\)]+)\)/g, "](" + baseUrl + "$1)");
+	return markdown.replace(/\]\((\/wiki\/[^\)]+)\)/g, `](${baseUrl}$1)`);
 }
 
 // this method is called when your extension is activated
@@ -55,8 +55,8 @@ export function activate(context: vscode.ExtensionContext) {
 			const range = document.getWordRangeAtPosition(position);
 			const word = document.getText(range);
 
-			if (word === "IBRION") {
-				return axios.get("https://www.vasp.at/wiki/index.php/IBRION")
+			if (word === "IBRION" || word === "IBAND") {
+				return axios.get(`https://www.vasp.at/wiki/index.php/${word}`)
 					.then((response) => {
 						let markdown = convertToMarkdown(filterHtml(response.data), word);
 						markdown = formatDefault(markdown, word);
