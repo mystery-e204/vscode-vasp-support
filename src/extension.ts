@@ -39,7 +39,6 @@ export function activate(context: vscode.ExtensionContext) {
 							markdown = match[1].replace(/(.*)\n\n/s, "$1\n\n---\n\n## Default\n\n") + match[3];
 						}
 
-						console.log(markdown);
 						markdown = markdown.replace(RegExp("^ *Description: *", "m"), "---\n\n## Description\n\n");
 
 						return new vscode.Hover(markdown);
