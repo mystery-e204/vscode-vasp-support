@@ -6,6 +6,43 @@ import * as cheerio from 'cheerio';
 const TurndownService = require('turndown');
 const turndownPluginGfm = require('@joplin/turndown-plugin-gfm');
 
+function filterHTML(html: string): string {
+	const $ = cheerio.load(html);
+	let elems = $("#mw-content-text p:first");
+
+	let outStr = elems.html();
+	elems.nextUntil("hr").each((_, el) => {
+		outStr += $.html(el);
+	});
+
+	return outStr ? outStr : "";
+}
+
+function convertToMarkdown(html: string, word: string): string {
+	const turndownService = new TurndownService({
+		emDelimiter: "*",
+		hr: "---"
+	});
+	turndownService.use(turndownPluginGfm.tables);
+
+	let markdown: string = "# " + word + "\n\n";
+	markdown += turndownService.turndown(html);
+
+	return markdown;
+}
+
+function formatDefault(markdown: string, word: string): string {
+	const match = markdown.match(RegExp("(.*?) *Default: *(\\**" + word + "\\**)? *(.*)", "s"));
+	if (match !== null) {
+		return match[1].replace(/(.*)\n\n/s, "$1\n\n---\n\n## Default\n\n") + match[3];
+	}
+	return markdown;
+}
+
+function formatDescription(markdown: string, word: string): string {
+	return markdown.replace(RegExp("^ *Description: *", "m"), "---\n\n## Description\n\n");
+}
+
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
@@ -17,30 +54,9 @@ export function activate(context: vscode.ExtensionContext) {
 			if (word === "IBRION") {
 				return axios.get("https://www.vasp.at/wiki/index.php/IBRION")
 					.then((response) => {
-						const $ = cheerio.load(response.data);
-						let elems = $("#mw-content-text p:first");
-
-						let htmlString = elems.html();
-						elems.nextUntil("hr").each((i, el) => {
-							htmlString += $.html(el);
-						});
-
-						const turndownService = new TurndownService({
-							emDelimiter: "*",
-							hr: "---"
-						});
-						turndownService.use(turndownPluginGfm.tables);
-
-						let markdown: string = "# " + word + "\n\n";
-						markdown += turndownService.turndown(htmlString);
-
-						const match = markdown.match(RegExp("(.*?) *Default: *(\\**" + word + "\\**)? *(.*)", "s"));
-						if (match !== null) {
-							markdown = match[1].replace(/(.*)\n\n/s, "$1\n\n---\n\n## Default\n\n") + match[3];
-						}
-
-						markdown = markdown.replace(RegExp("^ *Description: *", "m"), "---\n\n## Description\n\n");
-
+						let markdown = convertToMarkdown(filterHTML(response.data), word);
+						markdown = formatDefault(markdown, word);
+						markdown = formatDescription(markdown, word);
 						return new vscode.Hover(markdown);
 					}, null);
 			}
