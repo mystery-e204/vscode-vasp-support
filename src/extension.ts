@@ -66,12 +66,12 @@ async function fetchIncarTags(relUrl: string): Promise<string[]> {
 
 export function activate(context: vscode.ExtensionContext) {
 	fetchIncarTags("/wiki/index.php/Category:INCAR_tag").then(tags => {
-		incarTags = tags;
+		incarTags = tags.map(t => t.toUpperCase());
 
 		vscode.languages.registerHoverProvider("plaintext", {
 			provideHover(document, position, token) {
 				const range = document.getWordRangeAtPosition(position);
-				const word = document.getText(range);
+				const word = document.getText(range).toUpperCase();
 
 				if (incarTags.includes(word)) {
 					return axios.get(getTagUrl(word))
