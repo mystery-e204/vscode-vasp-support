@@ -6,6 +6,9 @@ import * as cheerio from 'cheerio';
 const TurndownService = require('turndown');
 const turndownPluginGfm = require('@joplin/turndown-plugin-gfm');
 
+const baseUrl = "https://www.vasp.at";
+let incarTags: string[];
+
 function filterHtml(html: string): string {
 	const $ = cheerio.load(html);
 	let elems = $("#mw-content-text p:first");
@@ -18,28 +21,28 @@ function filterHtml(html: string): string {
 	return outStr ? outStr : "";
 }
 
-function convertToMarkdown(html: string, word: string): string {
+function convertToMarkdown(html: string, incarTag: string): string {
 	const turndownService = new TurndownService({
 		emDelimiter: "*",
 		hr: "---"
 	});
 	turndownService.use(turndownPluginGfm.tables);
 
-	let markdown: string = "# " + word + "\n\n";
+	let markdown: string = "# " + incarTag + "\n\n";
 	markdown += turndownService.turndown(html);
 
 	return markdown;
 }
 
-function formatDefault(markdown: string, word: string): string {
-	const match = markdown.match(RegExp(`(.*?) *Default: *(\\**${word}\\**)? *(.*)`, "s"));
+function formatDefault(markdown: string, incarTag: string): string {
+	const match = markdown.match(RegExp(`(.*?) *Default: *(\\**${incarTag}\\**)? *(.*)`, "s"));
 	if (match !== null) {
 		return match[1].replace(/(.*)\n\n/s, "$1\n\n---\n\n## Default\n\n") + match[3];
 	}
 	return markdown;
 }
 
-function formatDescription(markdown: string, word: string): string {
+function formatDescription(markdown: string, incarTag: string): string {
 	return markdown.replace(/^ *Description: */m, "---\n\n## Description\n\n");
 }
 
@@ -47,29 +50,43 @@ function fixWikiLinks(markdown: string, baseUrl: string): string {
 	return markdown.replace(/\]\((\/wiki\/[^\)]+)\)/g, `](${baseUrl}$1)`);
 }
 
-// this method is called when your extension is activated
-// your extension is activated the very first time the command is executed
-export function activate(context: vscode.ExtensionContext) {
-	vscode.languages.registerHoverProvider("plaintext", {
-		provideHover(document, position, token) {
-			const range = document.getWordRangeAtPosition(position);
-			const word = document.getText(range);
+async function fetchIncarTags(relUrl: string): Promise<string[]> {
+	return axios.get(`${baseUrl}${relUrl}`).then(response => {
+		const $ = cheerio.load(response.data);
+		const tags = $("#mw-pages .mw-category li").map((_, el) => $(el).text().replace(" ", "_")).toArray();
+		const nextUrl = $("#mw-pages a[href][title='Category:INCAR tag']:contains('next page'):first").attr("href");
 
-			if (word === "IBRION" || word === "IBAND") {
-				return axios.get(`https://www.vasp.at/wiki/index.php/${word}`)
-					.then((response) => {
-						let markdown = convertToMarkdown(filterHtml(response.data), word);
-						markdown = formatDefault(markdown, word);
-						markdown = formatDescription(markdown, word);
-						markdown = fixWikiLinks(markdown, "https://www.vasp.at");
-						return new vscode.Hover(markdown);
-					}, null);
-			}
-
-			return null;
+		if (nextUrl !== undefined) {
+			return fetchIncarTags(nextUrl).then(nextTags => tags.concat(nextTags), err => Promise.reject(err));
 		}
+		return tags;
 	});
 }
 
-// this method is called when your extension is deactivated
+export function activate(context: vscode.ExtensionContext) {
+	fetchIncarTags("/wiki/index.php/Category:INCAR_tag").then(tags => {
+		incarTags = tags;
+
+		vscode.languages.registerHoverProvider("plaintext", {
+			provideHover(document, position, token) {
+				const range = document.getWordRangeAtPosition(position);
+				const word = document.getText(range);
+
+				if (incarTags.includes(word)) {
+					return axios.get(`${baseUrl}/wiki/index.php/${word}`)
+						.then((response) => {
+							let markdown = convertToMarkdown(filterHtml(response.data), word);
+							markdown = formatDefault(markdown, word);
+							markdown = formatDescription(markdown, word);
+							markdown = fixWikiLinks(markdown, baseUrl);
+							return new vscode.Hover(markdown);
+						}, null);
+				}
+
+				return null;
+			}
+		});
+	});
+}
+
 export function deactivate() {}
