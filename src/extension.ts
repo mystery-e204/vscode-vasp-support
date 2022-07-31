@@ -9,6 +9,10 @@ const turndownPluginGfm = require('@joplin/turndown-plugin-gfm');
 const baseUrl = "https://www.vasp.at";
 let incarTags: string[];
 
+function getTagUrl(incarTag: string): string {
+	return `${baseUrl}/wiki/index.php/${incarTag}`
+}
+
 function filterHtml(html: string): string {
 	const $ = cheerio.load(html);
 	let elems = $("#mw-content-text p:first");
@@ -28,10 +32,7 @@ function convertToMarkdown(html: string, incarTag: string): string {
 	});
 	turndownService.use(turndownPluginGfm.tables);
 
-	let markdown: string = "# " + incarTag + "\n\n";
-	markdown += turndownService.turndown(html);
-
-	return markdown;
+	return `# [${incarTag}](${getTagUrl(incarTag)})\n\n${turndownService.turndown(html)}`;
 }
 
 function formatDefault(markdown: string, incarTag: string): string {
@@ -73,7 +74,7 @@ export function activate(context: vscode.ExtensionContext) {
 				const word = document.getText(range);
 
 				if (incarTags.includes(word)) {
-					return axios.get(`${baseUrl}/wiki/index.php/${word}`)
+					return axios.get(getTagUrl(word))
 						.then((response) => {
 							let markdown = convertToMarkdown(filterHtml(response.data), word);
 							markdown = formatDefault(markdown, word);
