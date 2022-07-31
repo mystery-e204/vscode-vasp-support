@@ -38,13 +38,13 @@ function convertToMarkdown(html: string, incarTag: string): string {
 function formatDefault(markdown: string, incarTag: string): string {
 	const match = markdown.match(RegExp(`(.*?) *Default: *(\\**${incarTag}\\**)? *(.*)`, "s"));
 	if (match !== null) {
-		return match[1].replace(/(.*)\n\n/s, "$1\n\n---\n\n## Default\n\n") + match[3];
+		return match[1].replace(/(.*[^\|\n])\n+/s, "$1\n\n---\n\n## Default\n\n") + match[3];
 	}
 	return markdown;
 }
 
 function formatDescription(markdown: string, incarTag: string): string {
-	return markdown.replace(/^ *Description: */m, "---\n\n## Description\n\n");
+	return markdown.replace(/\n[\n ]*Description:[\n ]*/s, "\n\n---\n\n## Description\n\n");
 }
 
 function fixWikiLinks(markdown: string, baseUrl: string): string {
