@@ -7,11 +7,8 @@ const TurndownService = require('turndown');
 const turndownPluginGfm = require('@joplin/turndown-plugin-gfm');
 
 const baseUrl = "https://www.vasp.at";
+const wikiUrl = "/wiki/index.php/";
 let incarTags: string[];
-
-function getTagUrl(incarTag: string): string {
-	return `${baseUrl}/wiki/index.php/${incarTag}`;
-}
 
 function filterHtml(html: string): string {
 	const $ = cheerio.load(html);
@@ -25,14 +22,21 @@ function filterHtml(html: string): string {
 	return outStr ? outStr : "";
 }
 
-function convertToMarkdown(html: string, incarTag: string): string {
+function convertToMarkdown(html: string, incarTag: string): vscode.MarkdownString {
 	const turndownService = new TurndownService({
 		emDelimiter: "*",
 		hr: "---"
 	});
 	turndownService.use(turndownPluginGfm.tables);
 
-	return `# [${incarTag}](${getTagUrl(incarTag)})\n\n${turndownService.turndown(html)}`;
+	let markdownStr = `# [${incarTag}](/wiki/index.php/${incarTag} "${incarTag}")\n\n`;
+	markdownStr += turndownService.turndown(html);
+	markdownStr = formatDefault(markdownStr, incarTag);
+	markdownStr = formatDescription(markdownStr, incarTag);
+
+	const markdown = new vscode.MarkdownString(markdownStr);
+	markdown.baseUri = vscode.Uri.parse(baseUrl);
+	return markdown;
 }
 
 function formatDefault(markdown: string, incarTag: string): string {
@@ -47,10 +51,6 @@ function formatDescription(markdown: string, incarTag: string): string {
 	return markdown.replace(/\n[\n ]*Description:[\n ]*/s, "\n\n---\n\n## Description\n\n");
 }
 
-function fixWikiLinks(markdown: string, baseUrl: string): string {
-	return markdown.replace(/\]\((\/wiki\/[^\)]+)\)/g, `](${baseUrl}$1)`);
-}
-
 async function fetchIncarTags(relUrl: string): Promise<string[]> {
 	return axios.get(`${baseUrl}${relUrl}`).then(response => {
 		const $ = cheerio.load(response.data);
@@ -58,14 +58,16 @@ async function fetchIncarTags(relUrl: string): Promise<string[]> {
 		const nextUrl = $("#mw-pages a[href][title='Category:INCAR tag']:contains('next page'):first").attr("href");
 
 		if (nextUrl !== undefined) {
-			return fetchIncarTags(nextUrl).then(nextTags => tags.concat(nextTags), err => Promise.reject(err));
+			return fetchIncarTags(nextUrl)
+				.then(nextTags => tags.concat(nextTags))
+				.catch(err => Promise.reject(err));
 		}
 		return tags;
 	});
 }
 
 export function activate(context: vscode.ExtensionContext) {
-	fetchIncarTags("/wiki/index.php/Category:INCAR_tag").then(tags => {
+	fetchIncarTags(`${wikiUrl}Category:INCAR_tag`).then(tags => {
 		incarTags = tags.map(t => t.toUpperCase());
 
 		vscode.languages.registerHoverProvider("plaintext", {
@@ -74,16 +76,10 @@ export function activate(context: vscode.ExtensionContext) {
 				const word = document.getText(range).toUpperCase();
 
 				if (incarTags.includes(word)) {
-					return axios.get(getTagUrl(word))
-						.then((response) => {
-							let markdown = convertToMarkdown(filterHtml(response.data), word);
-							markdown = formatDefault(markdown, word);
-							markdown = formatDescription(markdown, word);
-							markdown = fixWikiLinks(markdown, baseUrl);
-							return new vscode.Hover(markdown);
-						}, null);
+					return axios.get(`${baseUrl}${wikiUrl}${word}`)
+						.then(response => new vscode.Hover(convertToMarkdown(filterHtml(response.data), word)))
+						.catch(() => null);
 				}
-
 				return null;
 			}
 		});
