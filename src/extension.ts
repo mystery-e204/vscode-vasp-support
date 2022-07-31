@@ -10,7 +10,7 @@ const baseUrl = "https://www.vasp.at";
 let incarTags: string[];
 
 function getTagUrl(incarTag: string): string {
-	return `${baseUrl}/wiki/index.php/${incarTag}`
+	return `${baseUrl}/wiki/index.php/${incarTag}`;
 }
 
 function filterHtml(html: string): string {
