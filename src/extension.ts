@@ -22,17 +22,49 @@ function filterHtml(html: string): string {
 	return outStr ? outStr : "";
 }
 
-function convertToMarkdown(html: string, incarTag: string): vscode.MarkdownString {
+function getTextColor(): string {
+	const themeKind = vscode.window.activeColorTheme.kind;
+	switch (themeKind) {
+		case vscode.ColorThemeKind.Light:
+			return "#616161";
+		case vscode.ColorThemeKind.Dark:
+			return "#CCCCCC";
+		case vscode.ColorThemeKind.HighContrastLight:
+			return "#000000";
+		case vscode.ColorThemeKind.HighContrast:
+			return "#FFFFFF";
+		default:
+			throw new Error("ColorThemeKind could not be determined");
+	}
+}
+
+function turndownHtml(html: string): string {
 	const turndownService = new TurndownService({
 		emDelimiter: "*",
 		hr: "---"
 	});
 	turndownService.use(turndownPluginGfm.tables);
+	
+	turndownService.addRule("math", {
+		filter: (node: any, options: any) => {
+			return node.nodeName.toLowerCase() === "span"
+				&& node.getAttribute("class")?.split(/\s+/)?.includes("mwe-math-element");
+		},
+		replacement: (content: any, node: any, options: any) => {
+			const imageUrl: string | undefined = node.querySelector("img[src]")?.getAttribute("src");
+			return imageUrl === undefined ? "" : `![math](${imageUrl})`;
+		}
+	});
 
+	return turndownService.turndown(html);
+}
+
+async function convertToMarkdown(html: string, incarTag: string): Promise<vscode.MarkdownString> {
 	let markdownStr = `# [${incarTag}](/wiki/index.php/${incarTag} "${incarTag}")\n\n`;
-	markdownStr += turndownService.turndown(html);
+	markdownStr += turndownHtml(html);
 	markdownStr = formatDefault(markdownStr, incarTag);
 	markdownStr = formatDescription(markdownStr, incarTag);
+	markdownStr = await formatMath(markdownStr);
 
 	const markdown = new vscode.MarkdownString(markdownStr);
 	markdown.baseUri = vscode.Uri.parse(baseUrl);
@@ -49,6 +81,28 @@ function formatDefault(markdown: string, incarTag: string): string {
 
 function formatDescription(markdown: string, incarTag: string): string {
 	return markdown.replace(/\n[\n ]*Description:[\n ]*/s, "\n\n---\n\n## Description\n\n");
+}
+
+async function formatMath(markdown: string): Promise<string> {
+	const svgToDataUri = function(svg: string): string {
+		console.log(svg);
+		const newSvg = svg.replace(/="currentColor"/g, `="${getTextColor()}"`);
+		console.log(newSvg);
+		return "data:image/svg+xml," + encodeURIComponent(newSvg);
+	};
+
+	const processString = async function(markdown: string): Promise<string> {
+		const match = markdown.match(/(.*?!\[[^\]]*\]\()([^\)]*)(\).*)/s);
+		if (match !== null) {
+			const promise1 = axios.get(match[2]);
+			const promise2 = processString(match[3]);
+			const uri = await promise1.then(response => svgToDataUri(response.data)).catch(() => "");
+			return `${match[1]}${uri}${await promise2}`;
+		}
+		return markdown;
+	};
+
+	return processString(markdown);
 }
 
 async function fetchIncarTags(relUrl: string): Promise<string[]> {
@@ -77,7 +131,8 @@ export function activate(context: vscode.ExtensionContext) {
 
 				if (incarTags.includes(word)) {
 					return axios.get(`${baseUrl}${wikiUrl}${word}`)
-						.then(response => new vscode.Hover(convertToMarkdown(filterHtml(response.data), word)))
+						.then(response => convertToMarkdown(filterHtml(response.data), word))
+						.then(markdown => new vscode.Hover(markdown))
 						.catch(() => null);
 				}
 				return null;
