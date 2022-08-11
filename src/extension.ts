@@ -85,9 +85,7 @@ function formatDescription(markdown: string, incarTag: string): string {
 
 async function formatMath(markdown: string): Promise<string> {
 	const svgToDataUri = function(svg: string): string {
-		console.log(svg);
 		const newSvg = svg.replace(/="currentColor"/g, `="${getTextColor()}"`);
-		console.log(newSvg);
 		return "data:image/svg+xml," + encodeURIComponent(newSvg);
 	};
 
