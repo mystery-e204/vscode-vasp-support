@@ -39,6 +39,7 @@
     "@joplin/turndown-plugin-gfm": "^1.0.44",
     "axios": "^0.27.2",
     "cheerio": "^1.0.0-rc.12",
+    "mathjax-full": "^3.2.2",
     "turndown": "^7.1.1"
   }
 }
