@@ -3,12 +3,17 @@
 import * as vscode from 'vscode';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
+
+import { MathConverter } from "./math-converter";
+
 const TurndownService = require('turndown');
 const turndownPluginGfm = require('@joplin/turndown-plugin-gfm');
+
 
 const baseUrl = "https://www.vasp.at";
 const wikiUrl = "/wiki/index.php/";
 let incarTags: string[];
+let mathConverter: MathConverter;
 
 function filterHtml(html: string): string {
 	const $ = cheerio.load(html);
@@ -45,26 +50,34 @@ function turndownHtml(html: string): string {
 	});
 	turndownService.use(turndownPluginGfm.tables);
 	
+	const svgToDataUri = function(svg: string): string {
+		const newSvg = svg.replace(/="currentColor"/g, `="${getTextColor()}"`);
+		return "data:image/svg+xml," + encodeURIComponent(newSvg);
+	};
+
 	turndownService.addRule("math", {
 		filter: (node: any, options: any) => {
 			return node.nodeName.toLowerCase() === "span"
 				&& node.getAttribute("class")?.split(/\s+/)?.includes("mwe-math-element");
 		},
 		replacement: (content: any, node: any, options: any) => {
-			const imageUrl: string | undefined = node.querySelector("img[src]")?.getAttribute("src");
-			return imageUrl === undefined ? "" : `![math](${imageUrl})`;
+			const tex = node.querySelector("math[alttext]")?.getAttribute("alttext");
+			if (tex) {
+				const svg = mathConverter.convert(tex);
+				return `![math](${svgToDataUri(svg)})`;
+			}
+			return "";
 		}
 	});
 
 	return turndownService.turndown(html);
 }
 
-async function convertToMarkdown(html: string, incarTag: string): Promise<vscode.MarkdownString> {
+function convertToMarkdown(html: string, incarTag: string): vscode.MarkdownString {
 	let markdownStr = `# [${incarTag}](/wiki/index.php/${incarTag} "${incarTag}")\n\n`;
 	markdownStr += turndownHtml(html);
 	markdownStr = formatDefault(markdownStr, incarTag);
 	markdownStr = formatDescription(markdownStr, incarTag);
-	markdownStr = await formatMath(markdownStr);
 
 	const markdown = new vscode.MarkdownString(markdownStr);
 	markdown.baseUri = vscode.Uri.parse(baseUrl);
@@ -83,26 +96,6 @@ function formatDescription(markdown: string, incarTag: string): string {
 	return markdown.replace(/\n[\n ]*Description:[\n ]*/s, "\n\n---\n\n## Description\n\n");
 }
 
-async function formatMath(markdown: string): Promise<string> {
-	const svgToDataUri = function(svg: string): string {
-		const newSvg = svg.replace(/="currentColor"/g, `="${getTextColor()}"`);
-		return "data:image/svg+xml," + encodeURIComponent(newSvg);
-	};
-
-	const processString = async function(markdown: string): Promise<string> {
-		const match = markdown.match(/(.*?!\[[^\]]*\]\()([^\)]*)(\).*)/s);
-		if (match !== null) {
-			const promise1 = axios.get(match[2]);
-			const promise2 = processString(match[3]);
-			const uri = await promise1.then(response => svgToDataUri(response.data)).catch(() => "");
-			return `${match[1]}${uri}${await promise2}`;
-		}
-		return markdown;
-	};
-
-	return processString(markdown);
-}
-
 async function fetchIncarTags(relUrl: string): Promise<string[]> {
 	return axios.get(`${baseUrl}${relUrl}`).then(response => {
 		const $ = cheerio.load(response.data);
@@ -110,32 +103,31 @@ async function fetchIncarTags(relUrl: string): Promise<string[]> {
 		const nextUrl = $("#mw-pages a[href][title='Category:INCAR tag']:contains('next page'):first").attr("href");
 
 		if (nextUrl !== undefined) {
-			return fetchIncarTags(nextUrl)
-				.then(nextTags => tags.concat(nextTags))
-				.catch(err => Promise.reject(err));
+			return fetchIncarTags(nextUrl).then(nextTags => tags.concat(nextTags));
 		}
 		return tags;
 	});
 }
 
-export function activate(context: vscode.ExtensionContext) {
-	fetchIncarTags(`${wikiUrl}Category:INCAR_tag`).then(tags => {
-		incarTags = tags.map(t => t.toUpperCase());
+export async function activate(context: vscode.ExtensionContext) {
+	incarTags = await fetchIncarTags(`${wikiUrl}Category:INCAR_tag`);
+	incarTags = incarTags.map(t => t.toUpperCase());
+	mathConverter = MathConverter.create();
 
-		vscode.languages.registerHoverProvider("plaintext", {
-			provideHover(document, position, token) {
-				const range = document.getWordRangeAtPosition(position);
-				const word = document.getText(range).toUpperCase();
+	vscode.languages.registerHoverProvider("plaintext", {
+		async provideHover(document, position, token) {
+			const range = document.getWordRangeAtPosition(position);
+			const word = document.getText(range).toUpperCase();
 
-				if (incarTags.includes(word)) {
-					return axios.get(`${baseUrl}${wikiUrl}${word}`)
-						.then(response => convertToMarkdown(filterHtml(response.data), word))
-						.then(markdown => new vscode.Hover(markdown))
-						.catch(() => null);
-				}
-				return null;
+			if (incarTags.includes(word)) {
+				try {
+					const response = await axios.get(`${baseUrl}${wikiUrl}${word}`);
+					const md = convertToMarkdown(filterHtml(response.data), word);
+					return new vscode.Hover(md);
+				} catch (error) {}
 			}
-		});
+			return null;
+		}
 	});
 }
 
