@@ -26,13 +26,7 @@ export class MathConverter {
 	}
 
 	convert(tex: string): string {
-		const node = this.document.convert(tex, {
-			display: false,
-			em: 16,
-			ex: 8,
-			containerWidth: 80 * 16
-		});
-
+		const node = this.document.convert(tex, {display: false});
 		return this.adaptor.innerHTML(node);
 	}
 }
