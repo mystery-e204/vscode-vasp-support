@@ -97,16 +97,16 @@ function formatDescription(markdown: string, incarTag: string): string {
 }
 
 async function fetchIncarTags(relUrl: string): Promise<string[]> {
-	return axios.get(`${baseUrl}${relUrl}`).then(response => {
-		const $ = cheerio.load(response.data);
-		const tags = $("#mw-pages .mw-category li").map((_, el) => $(el).text().replace(" ", "_")).toArray();
-		const nextUrl = $("#mw-pages a[href][title='Category:INCAR tag']:contains('next page'):first").attr("href");
+	const response = await axios.get(`${baseUrl}${relUrl}`);
+	const $ = cheerio.load(response.data);
+	const tags = $("#mw-pages .mw-category li").map((_, el) => $(el).text().replace(" ", "_")).toArray();
+	const nextUrl = $("#mw-pages a[href][title='Category:INCAR tag']:contains('next page'):first").attr("href");
 
-		if (nextUrl !== undefined) {
-			return fetchIncarTags(nextUrl).then(nextTags => tags.concat(nextTags));
-		}
-		return tags;
-	});
+	if (nextUrl !== undefined) {
+		const nextTags = await fetchIncarTags(nextUrl);
+		return tags.concat(nextTags);
+	}
+	return tags;
 }
 
 export async function activate(context: vscode.ExtensionContext) {
