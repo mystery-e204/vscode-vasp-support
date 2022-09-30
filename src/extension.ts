@@ -1,8 +1,8 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import axios from 'axios';
 import * as cheerio from 'cheerio';
+import { mwn } from 'mwn';
 
 import { MathConverter } from "./math-converter";
 
@@ -11,9 +11,12 @@ const turndownPluginGfm = require('@joplin/turndown-plugin-gfm');
 
 
 const baseUrl = "https://www.vasp.at";
-const wikiUrl = "/wiki/index.php/";
-let incarTags: string[];
 let mathConverter: MathConverter;
+
+interface PageInfo {
+	title: string,
+	body: string
+}
 
 function filterHtml(html: string): string {
 	const $ = cheerio.load(html);
@@ -76,8 +79,8 @@ function turndownHtml(html: string): string {
 function convertToMarkdown(html: string, incarTag: string): vscode.MarkdownString {
 	let markdownStr = `# [${incarTag}](/wiki/index.php/${incarTag} "${incarTag}")\n\n`;
 	markdownStr += turndownHtml(html);
-	markdownStr = formatDefault(markdownStr, incarTag);
-	markdownStr = formatDescription(markdownStr, incarTag);
+	// markdownStr = formatDefault(markdownStr, incarTag);
+	// markdownStr = formatDescription(markdownStr, incarTag);
 
 	const markdown = new vscode.MarkdownString(markdownStr);
 	markdown.baseUri = vscode.Uri.parse(baseUrl);
@@ -96,35 +99,85 @@ function formatDescription(markdown: string, incarTag: string): string {
 	return markdown.replace(/\n[\n ]*Description:[\n ]*/s, "\n\n---\n\n## Description\n\n");
 }
 
-async function fetchIncarTags(relUrl: string): Promise<string[]> {
-	const response = await axios.get(`${baseUrl}${relUrl}`);
-	const $ = cheerio.load(response.data);
-	const tags = $("#mw-pages .mw-category li").map((_, el) => $(el).text().replace(" ", "_")).toArray();
-	const nextUrl = $("#mw-pages a[href][title='Category:INCAR tag']:contains('next page'):first").attr("href");
-
-	if (nextUrl !== undefined) {
-		const nextTags = await fetchIncarTags(nextUrl);
-		return tags.concat(nextTags);
-	}
-	return tags;
-}
 
 export async function activate(context: vscode.ExtensionContext) {
-	incarTags = await fetchIncarTags(`${wikiUrl}Category:INCAR_tag`);
-	incarTags = incarTags.map(t => t.toUpperCase());
 	mathConverter = MathConverter.create();
+
+	const bot = new mwn({
+		apiUrl: "https://www.vasp.at/wiki/api.php"
+	});
+
+	const pageIds: number[] = [];
+
+	for await (let response of bot.continuedQueryGen({
+		format: "json",
+		action: "query",
+		list: "categorymembers",
+		cmtitle: "Category:INCAR_tag",
+		cmprop: "title|ids",
+		cmlimit: "max"
+	})) {
+		if (response.query) {
+			pageIds.push(...
+				response.query.categorymembers.filter((member: any) => {
+					const title: string = member.title;
+					return !title.startsWith("Construction:");
+				}).map((member: any) => member.pageid)
+			);
+		}
+	}
+
+	const pages: PageInfo[] = [];
+
+	for await (let response of bot.massQueryGen({
+		format: "json",
+		action: "query",
+		pageids: pageIds,
+		export: true
+	}, "pageids")) {
+		const $ = cheerio.load(response.query?.export, {
+			xmlMode: true
+		});
+		for (let page of $("page")) {
+			const title = $(page).find("title").first().text();
+			let body = $(page).find("text").first().text();
+
+			let maxEnd = body.lastIndexOf("\n");
+			maxEnd = maxEnd >= 0 ? maxEnd : body.length;
+			let end = maxEnd;
+			let newEnd = body.search(/\s*\n----\s*\n/);
+			end = newEnd >= 0 ? Math.min(end, newEnd) : end;
+			newEnd = body.search(/\s*\n\s*<hr \/>/);
+			end = newEnd >= 0 ? Math.min(end, newEnd) : end;
+
+			pages.push({
+				title: title,
+				body: body.slice(0, end)
+			});
+		}
+	}
+
+	const combinedText = pages.map(info => `<div class="incarTag" title="${info.title}">${info.body}</div>`).join("");
+	const tmp = await bot.parseWikitext(combinedText);
+	const $ = cheerio.load(tmp);
+
+	const buffer = new Map<string, vscode.MarkdownString>();
+	$("div.incarTag").each((_, e) => {
+		const title = e.attribs.title.toUpperCase();
+		const html = $(e).html();
+		if (title && html) {
+			buffer.set(title, convertToMarkdown(html, title));
+		}
+	});
 
 	vscode.languages.registerHoverProvider("plaintext", {
 		async provideHover(document, position, token) {
 			const range = document.getWordRangeAtPosition(position);
 			const word = document.getText(range).toUpperCase();
 
-			if (incarTags.includes(word)) {
-				try {
-					const response = await axios.get(`${baseUrl}${wikiUrl}${word}`);
-					const md = convertToMarkdown(filterHtml(response.data), word);
-					return new vscode.Hover(md);
-				} catch (error) {}
+			const markdown = buffer.get(word);
+			if (markdown) {
+				return new vscode.Hover(markdown);
 			}
 			return null;
 		}
