@@ -1,0 +1,94 @@
+import { mwn } from 'mwn';
+import * as cheerio from 'cheerio';
+
+interface WikiPage {
+	title: string,
+	body: string
+}
+
+async function fetchIncarTagPageIDs(bot: mwn): Promise<number[]> {
+    const pageIds: number[] = [];
+
+    for await (let response of bot.continuedQueryGen({
+        format: "json",
+        action: "query",
+        list: "categorymembers",
+        cmtitle: "Category:INCAR_tag",
+        cmprop: "title|ids",
+        cmlimit: "max"
+    })) {
+        if (response.query) {
+            pageIds.push(...
+                response.query.categorymembers.filter((member: any) => {
+                    const title: string = member.title;
+                    return !title.startsWith("Construction:");
+                }).map((member: any) => member.pageid)
+            );
+        }
+    }
+
+    return pageIds;
+}
+
+async function fetchIncarTagWikiPages(bot: mwn, pageIds: number[]): Promise<WikiPage[]> {
+    const wikiPages: WikiPage[] = [];
+
+    for await (let response of bot.massQueryGen({
+        format: "json",
+        action: "query",
+        pageids: pageIds,
+        export: true
+    }, "pageids")) {
+        const $ = cheerio.load(response.query?.export, {
+            xmlMode: true
+        });
+        for (let page of $("page")) {
+            const title = $(page).find("title").first().text();
+            let body = $(page).find("text").first().text();
+
+            let maxEnd = body.lastIndexOf("\n");
+            maxEnd = maxEnd >= 0 ? maxEnd : body.length;
+            let end = maxEnd;
+            let newEnd = body.search(/\s*\n----\s*\n/);
+            end = newEnd >= 0 ? Math.min(end, newEnd) : end;
+            newEnd = body.search(/\s*\n\s*<hr \/>/);
+            end = newEnd >= 0 ? Math.min(end, newEnd) : end;
+
+            wikiPages.push({
+                title: title,
+                body: body.slice(0, end)
+            });
+        }
+    }
+
+    return wikiPages;
+}
+
+async function parseIncarTags(bot: mwn, wikiPages: WikiPage[]): Promise<Map<string, string>> {
+    const combinedText = wikiPages.map(info => `<div class="incarTag" title="${info.title}">\n${info.body}\n</div>`).join("");
+    const tmp = await bot.parseWikitext(combinedText);
+    const $ = cheerio.load(tmp);
+    
+    const htmlMap = new Map<string, string>();
+    $("div.incarTag").each((_, e) => {
+        const title = e.attribs.title.toUpperCase();
+        const html = $(e).html();
+        if (title && html) {
+            htmlMap.set(title, html);
+        }
+    });
+
+    return htmlMap;
+}
+
+export async function getIncarTags(baseUrl: string): Promise<Map<string, string>> {
+    const bot = new mwn({
+        apiUrl: `${baseUrl}/wiki/api.php`
+    });
+
+    const pageIDs = await fetchIncarTagPageIDs(bot);
+    const wikiPages = await fetchIncarTagWikiPages(bot, pageIDs);
+    const htmlMap = await parseIncarTags(bot, wikiPages);
+
+    return htmlMap;
+}
