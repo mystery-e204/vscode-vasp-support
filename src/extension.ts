@@ -1,10 +1,9 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import * as cheerio from 'cheerio';
-import { mwn } from 'mwn';
 
 import { MathConverter } from "./math-converter";
+import { getIncarTags } from './vasp-wiki';
 
 const TurndownService = require('turndown');
 const turndownPluginGfm = require('@joplin/turndown-plugin-gfm');
@@ -12,23 +11,7 @@ const turndownPluginGfm = require('@joplin/turndown-plugin-gfm');
 
 const baseUrl = "https://www.vasp.at";
 let mathConverter: MathConverter;
-
-interface PageInfo {
-	title: string,
-	body: string
-}
-
-function filterHtml(html: string): string {
-	const $ = cheerio.load(html);
-	let elems = $("#mw-content-text p:first");
-
-	let outStr = elems.html();
-	elems.nextUntil("hr").each((_, el) => {
-		outStr += $.html(el);
-	});
-
-	return outStr ? outStr : "";
-}
+let incarTags: Map<string, vscode.MarkdownString>;
 
 function getTextColor(): string {
 	const themeKind = vscode.window.activeColorTheme.kind;
@@ -79,8 +62,8 @@ function turndownHtml(html: string): string {
 function convertToMarkdown(html: string, incarTag: string): vscode.MarkdownString {
 	let markdownStr = `# [${incarTag}](/wiki/index.php/${incarTag} "${incarTag}")\n\n`;
 	markdownStr += turndownHtml(html);
-	// markdownStr = formatDefault(markdownStr, incarTag);
-	// markdownStr = formatDescription(markdownStr, incarTag);
+	markdownStr = formatDefault(markdownStr, incarTag);
+	markdownStr = formatDescription(markdownStr, incarTag);
 
 	const markdown = new vscode.MarkdownString(markdownStr);
 	markdown.baseUri = vscode.Uri.parse(baseUrl);
@@ -103,71 +86,10 @@ function formatDescription(markdown: string, incarTag: string): string {
 export async function activate(context: vscode.ExtensionContext) {
 	mathConverter = MathConverter.create();
 
-	const bot = new mwn({
-		apiUrl: "https://www.vasp.at/wiki/api.php"
-	});
-
-	const pageIds: number[] = [];
-
-	for await (let response of bot.continuedQueryGen({
-		format: "json",
-		action: "query",
-		list: "categorymembers",
-		cmtitle: "Category:INCAR_tag",
-		cmprop: "title|ids",
-		cmlimit: "max"
-	})) {
-		if (response.query) {
-			pageIds.push(...
-				response.query.categorymembers.filter((member: any) => {
-					const title: string = member.title;
-					return !title.startsWith("Construction:");
-				}).map((member: any) => member.pageid)
-			);
-		}
-	}
-
-	const pages: PageInfo[] = [];
-
-	for await (let response of bot.massQueryGen({
-		format: "json",
-		action: "query",
-		pageids: pageIds,
-		export: true
-	}, "pageids")) {
-		const $ = cheerio.load(response.query?.export, {
-			xmlMode: true
-		});
-		for (let page of $("page")) {
-			const title = $(page).find("title").first().text();
-			let body = $(page).find("text").first().text();
-
-			let maxEnd = body.lastIndexOf("\n");
-			maxEnd = maxEnd >= 0 ? maxEnd : body.length;
-			let end = maxEnd;
-			let newEnd = body.search(/\s*\n----\s*\n/);
-			end = newEnd >= 0 ? Math.min(end, newEnd) : end;
-			newEnd = body.search(/\s*\n\s*<hr \/>/);
-			end = newEnd >= 0 ? Math.min(end, newEnd) : end;
-
-			pages.push({
-				title: title,
-				body: body.slice(0, end)
-			});
-		}
-	}
-
-	const combinedText = pages.map(info => `<div class="incarTag" title="${info.title}">${info.body}</div>`).join("");
-	const tmp = await bot.parseWikitext(combinedText);
-	const $ = cheerio.load(tmp);
-
-	const buffer = new Map<string, vscode.MarkdownString>();
-	$("div.incarTag").each((_, e) => {
-		const title = e.attribs.title.toUpperCase();
-		const html = $(e).html();
-		if (title && html) {
-			buffer.set(title, convertToMarkdown(html, title));
-		}
+	const incarTagHtmls = await getIncarTags(baseUrl);
+	incarTags = new Map();
+	incarTagHtmls.forEach((val, key) => {
+		incarTags.set(key, convertToMarkdown(val, key));
 	});
 
 	vscode.languages.registerHoverProvider("plaintext", {
@@ -175,7 +97,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			const range = document.getWordRangeAtPosition(position);
 			const word = document.getText(range).toUpperCase();
 
-			const markdown = buffer.get(word);
+			const markdown = incarTags.get(word);
 			if (markdown) {
 				return new vscode.Hover(markdown);
 			}
