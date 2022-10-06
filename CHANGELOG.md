@@ -6,4 +6,15 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
-- Initial release
+### Added
+
+* INCAR syntax support
+* POSCAR support
+* KPOINTS support
+
+## [0.1.0]
+
+### Added
+
+* INCAR hover support
+* Short description in README.md

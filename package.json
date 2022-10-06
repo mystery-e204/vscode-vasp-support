@@ -1,8 +1,8 @@
 {
-  "name": "incar-support",
-  "displayName": "INCAR Support",
-  "description": "Official support for INCAR files",
-  "version": "0.0.1",
+  "name": "vasp-support",
+  "displayName": "VASP Support",
+  "description": "Provides support for files of the Vienna Ab-initio Simulation Package (VASP)",
+  "version": "0.1.0",
   "engines": {
     "vscode": "^1.69.0"
   },
