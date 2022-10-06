@@ -92,7 +92,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		incarTags.set(key, convertToMarkdown(val, key));
 	});
 
-	vscode.languages.registerHoverProvider("plaintext", {
+	vscode.languages.registerHoverProvider("incar", {
 		async provideHover(document, position, token) {
 			const range = document.getWordRangeAtPosition(position);
 			const word = document.getText(range).toUpperCase();

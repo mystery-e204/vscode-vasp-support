@@ -8,9 +8,14 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ### Added
 
-* INCAR syntax support
 * POSCAR support
 * KPOINTS support
+
+## [0.1.1]
+
+### Added
+
+* INCAR syntax support
 
 ## [0.1.0]
 

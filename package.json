@@ -2,7 +2,7 @@
   "name": "vasp-support",
   "displayName": "VASP Support",
   "description": "Provides support for files of the Vienna Ab-initio Simulation Package (VASP)",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "engines": {
     "vscode": "^1.69.0"
   },
@@ -10,10 +10,32 @@
     "Other"
   ],
   "activationEvents": [
-    "onLanguage:plaintext"
+    "onLanguage:incar"
   ],
   "main": "./out/extension.js",
-  "contributes": {},
+  "contributes": {
+    "languages": [
+      {
+        "id": "incar",
+        "aliases": [
+          "INCAR"
+        ],
+        "filenamePatterns": [
+          "INCAR",
+          "*{-,_,.}INCAR",
+          "INCAR{-,_,.}*",
+          "*{-,_,.}INCAR{-,_,.}*"
+        ]
+      }
+    ],
+    "grammars": [
+      {
+        "language": "incar",
+        "scopeName": "source.incar",
+        "path": "./syntaxes/incar.tmLanguage.json"
+      }
+    ]
+  },
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",

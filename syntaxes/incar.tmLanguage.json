@@ -1,0 +1,70 @@
+{
+    "scopeName": "source.incar",
+    "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+    "name": "incar",
+    "patterns": [
+        {
+            "include": "#comments"
+        },
+        {
+            "include": "#expression"
+        }
+    ],
+    "repository": {
+        "comments": {
+            "patterns": [
+                {
+                    "name": "comment.line.number-sign",
+                    "match": "#.*"
+                },
+                {
+                    "name": "comment.line.character",
+                    "match": "!.*"
+                }
+            ]
+        },
+        "string": {
+            "name": "string.quoted.double",
+            "begin": "\"",
+            "end": "\""
+        },
+        "expression": {
+            "begin": "^\\s*(\\w+)\\s*=",
+            "end": "$",
+            "beginCaptures": {
+                "1": {
+                    "name": "variable"
+                }
+            },
+            "patterns": [
+                {
+                    "include": "#string"
+                },
+                {
+                    "name": "constant.numeric",
+                    "match": "(?<=\\s|=)[+-]?\\d+\\.?\\d*(?:[eE][+-]?\\d+)?(?=\\s|$)"
+                },
+                {
+                    "name": "constant.numeric",
+                    "match": "(?<=\\s|=)[+-]?\\.?\\d+(?:[eE][+-]?\\d+)?(?=\\s|$)"
+                },
+                {
+                    "name": "constant.language",
+                    "match": "(?<=\\s|=)(?i:true|false|t|f)(?=\\s|$)"
+                },
+                {
+                    "name": "constant.language",
+                    "match": "(?<=\\s|=)\\.(?i:true|false|t|f)\\.(?=\\s|$)"
+                },
+                {
+                    "name": "invalid.illegal",
+                    "match": "="
+                },
+                {
+                    "name": "string.unquoted",
+                    "match": "[^\\s=]+"
+                }
+            ]
+        }
+    }
+}
