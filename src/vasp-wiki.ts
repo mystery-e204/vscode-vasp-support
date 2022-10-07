@@ -43,7 +43,7 @@ async function fetchIncarTagWikiPages(bot: mwn, pageIds: number[]): Promise<Wiki
             xmlMode: true
         });
         for (let page of $("page")) {
-            const title = $(page).find("title").first().text();
+            const title = $(page).find("title").first().text().replace(/ /g, "_");
             let body = $(page).find("text").first().text();
 
             let maxEnd = body.lastIndexOf("\n");
