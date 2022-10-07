@@ -7,7 +7,7 @@
     "vscode": "^1.69.0"
   },
   "categories": [
-    "Other"
+    "Programming Languages"
   ],
   "activationEvents": [
     "onLanguage:incar"
@@ -21,10 +21,7 @@
           "INCAR"
         ],
         "filenamePatterns": [
-          "INCAR",
-          "*{-,_,.}INCAR",
-          "INCAR{-,_,.}*",
-          "*{-,_,.}INCAR{-,_,.}*"
+          "INCAR*([0-9])?({-,_,.}*)"
         ]
       }
     ],
