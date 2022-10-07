@@ -8,6 +8,9 @@
         },
         {
             "include": "#expression"
+        },
+        {
+            "include": "#non-comment"
         }
     ],
     "repository": {
@@ -41,6 +44,9 @@
                     "include": "#string"
                 },
                 {
+                    "include": "#comments"
+                },
+                {
                     "name": "constant.numeric",
                     "match": "(?<=\\s|=)[+-]?\\d+\\.?\\d*(?:[eE][+-]?\\d+)?(?=\\s|$)"
                 },
@@ -65,6 +71,10 @@
                     "match": "[^\\s=]+"
                 }
             ]
+        },
+        "non-comment": {
+            "name": "comment.line",
+            "match": ".*"
         }
     }
 }
