@@ -26,7 +26,8 @@
           "INCAR"
         ],
         "filenamePatterns": [
-          "INCAR*([0-9])?({-,_,.}*)"
+          "INCAR",
+          "INCAR{-,_,.,[0-9]}*"
         ]
       }
     ],
