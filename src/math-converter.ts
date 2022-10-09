@@ -1,9 +1,9 @@
-const { mathjax } = require("mathjax-full/js/mathjax");
-const { TeX } = require("mathjax-full/js/input/tex");
-const { SVG } = require("mathjax-full/js/output/svg");
-const { liteAdaptor } = require("mathjax-full/js/adaptors/liteAdaptor");
-const { RegisterHTMLHandler } = require("mathjax-full/js/handlers/html");
-const { AllPackages } = require("mathjax-full/js/input/tex/AllPackages");
+import { mathjax } from "mathjax-full/js/mathjax";
+import { TeX } from "mathjax-full/js/input/tex";
+import { SVG } from "mathjax-full/js/output/svg";
+import { liteAdaptor } from "mathjax-full/js/adaptors/liteAdaptor";
+import { RegisterHTMLHandler } from "mathjax-full/js/handlers/html";
+import { AllPackages } from "mathjax-full/js/input/tex/AllPackages";
 
 export class MathConverter {
 	private document: any;

@@ -3,6 +3,7 @@
   "displayName": "VASP Support",
   "description": "Provides support for files of the Vienna Ab-initio Simulation Package (VASP)",
   "version": "0.1.1",
+  "publisher": "Mystery",
   "engines": {
     "vscode": "^1.69.0"
   },
@@ -16,7 +17,7 @@
   "activationEvents": [
     "onLanguage:incar"
   ],
-  "main": "./out/extension.js",
+  "main": "./dist/main.js",
   "contributes": {
     "languages": [
       {
@@ -38,12 +39,16 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run esbuild-base -- --minify",
+    "esbuild-base": "esbuild ./src/extension.ts --bundle --outfile=dist/main.js --external:vscode --format=cjs --platform=node",
+    "esbuild": "npm run esbuild-base -- --sourcemap",
+    "esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js"
+    "test": "node ./out/test/runTest.js",
+    "postinstall": "patch-package"
   },
   "devDependencies": {
     "@types/glob": "^7.2.0",
@@ -54,9 +59,11 @@
     "@typescript-eslint/eslint-plugin": "^5.30.0",
     "@typescript-eslint/parser": "^5.30.0",
     "@vscode/test-electron": "^2.1.5",
+    "esbuild": "^0.15.10",
     "eslint": "^8.18.0",
     "glob": "^8.0.3",
     "mocha": "^10.0.0",
+    "patch-package": "^6.4.7",
     "typescript": "^4.7.4"
   },
   "dependencies": {
