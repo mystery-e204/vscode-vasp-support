@@ -146,7 +146,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	});
 
 	vscode.languages.registerHoverProvider("incar", {
-		async provideHover(document, position, token) {
+		provideHover(document, position, token) {
 			const range = document.getWordRangeAtPosition(position);
 			const word = document.getText(range).toUpperCase();
 
