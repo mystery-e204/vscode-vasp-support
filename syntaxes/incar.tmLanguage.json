@@ -32,8 +32,8 @@
             "end": "\""
         },
         "expression": {
-            "begin": "^\\s*(\\w+)\\s*=",
-            "end": "$",
+            "begin": "(?:^|;)\\s*(\\w+)\\s*=",
+            "end": "(?=$|;)",
             "beginCaptures": {
                 "1": {
                     "name": "variable"
@@ -48,27 +48,27 @@
                 },
                 {
                     "name": "constant.numeric",
-                    "match": "(?<=\\s|=)[+-]?\\d+\\.?\\d*(?:[eE][+-]?\\d+)?(?=\\s|$)"
+                    "match": "(?<=\\s|=)[+-]?\\d+\\.?\\d*(?:[eE][+-]?\\d+)?(?=\\s|$|#|!|;|=)"
                 },
                 {
                     "name": "constant.numeric",
-                    "match": "(?<=\\s|=)[+-]?\\.?\\d+(?:[eE][+-]?\\d+)?(?=\\s|$)"
+                    "match": "(?<=\\s|=)[+-]?\\.?\\d+(?:[eE][+-]?\\d+)?(?=\\s|$|#|!|;|=)"
                 },
                 {
                     "name": "constant.language",
-                    "match": "(?<=\\s|=)(?i:true|false|t|f)(?=\\s|$)"
+                    "match": "(?<=\\s|=)(?i:true|false|t|f)(?=\\s|$|#|!|;|=)"
                 },
                 {
                     "name": "constant.language",
-                    "match": "(?<=\\s|=)\\.(?i:true|false|t|f)\\.(?=\\s|$)"
+                    "match": "(?<=\\s|=)\\.(?i:true|false|t|f)\\.(?=\\s|$|#|!|;|=)"
                 },
                 {
                     "name": "invalid.illegal",
-                    "match": "="
+                    "match": "=[^#!;]*"
                 },
                 {
                     "name": "string.unquoted",
-                    "match": "[^\\s=]+"
+                    "match": "[^\\s#!;=]+"
                 }
             ]
         },
