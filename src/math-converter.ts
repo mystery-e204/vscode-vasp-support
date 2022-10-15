@@ -9,20 +9,13 @@ export class MathConverter {
 	private document: any;
 	private adaptor: any;
 
-	private constructor(adaptor: any, document: any) {
-		this.adaptor = adaptor;
-		this.document = document;
-	}
-
-	static create(): MathConverter {
-		const adaptor = liteAdaptor();
-		RegisterHTMLHandler(adaptor);
+	constructor() {
+		this.adaptor = liteAdaptor();
+		RegisterHTMLHandler(this.adaptor);
 	
 		const tex = new TeX({packages: AllPackages});
 		const svg = new SVG({fontCache: "local"});
-		const document = mathjax.document('', {InputJax: tex, OutputJax: svg});
-
-		return new MathConverter(adaptor, document);
+		this.document = mathjax.document('', {InputJax: tex, OutputJax: svg});
 	}
 
 	convert(tex: string): string {
