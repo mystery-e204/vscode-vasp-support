@@ -11,6 +11,12 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 * POSCAR support
 * KPOINTS support
 
+## [0.1.2]
+
+### Changed
+
+* Improved INCAR syntax support
+
 ## [0.1.1]
 
 ### Added
