@@ -15,7 +15,8 @@
     "url": "https://github.com/mystery-e204/vscode-vasp-support"
   },
   "activationEvents": [
-    "onLanguage:incar"
+    "onLanguage:incar",
+    "onLanguage:poscar"
   ],
   "main": "./dist/main.js",
   "contributes": {
@@ -29,6 +30,16 @@
           "INCAR",
           "INCAR{-,_,.,[0-9]}*"
         ]
+      },
+      {
+        "id": "poscar",
+        "aliases": [
+          "POSCAR"
+        ],
+        "filenamePatterns": [
+          "POSCAR",
+          "POSCAR{-,_,.,[0-9]}*"
+        ]
       }
     ],
     "grammars": [
@@ -36,6 +47,21 @@
         "language": "incar",
         "scopeName": "source.incar",
         "path": "./syntaxes/incar.tmLanguage.json"
+      }
+    ],
+    "semanticTokenTypes": [
+      {
+        "id": "invalid",
+        "description": "An invalid symbol"
+      }
+    ],
+    "semanticTokenScopes": [
+      {
+        "scopes": {
+          "invalid": [
+            "invalid.illegal"
+          ]
+        }
       }
     ]
   },
