@@ -11,14 +11,15 @@ const baseUrl = "https://www.vasp.at";
 let incarTags: Map<string, vscode.MarkdownString>;
 
 function updateDiagnostics(document: vscode.TextDocument, collection: vscode.DiagnosticCollection): void {
-	if (document.languageId === "poscar") {
+	const config = vscode.workspace.getConfiguration("vasp-support");
+	if (document.languageId === "poscar" && config.get("poscar.linting.enabled")) {
 		const poscarLines = parsePoscar(document);
 		collection.set(document.uri, poscarLines.flatMap(l => poscarBlockInfo[l.type].validate(l)));
 	}
 }
 
 export async function activate(context: vscode.ExtensionContext) {
-	const collection = vscode.languages.createDiagnosticCollection('test');
+	const collection = vscode.languages.createDiagnosticCollection('poscar');
 	if (vscode.window.activeTextEditor) {
 		updateDiagnostics(vscode.window.activeTextEditor.document, collection);
 	}
@@ -30,6 +31,12 @@ export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(event => {
 		if (event.document) {
 			updateDiagnostics(event.document, collection);
+		}
+	}));
+	context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(event => {
+		const config = vscode.workspace.getConfiguration("vasp-support");
+		if (!config.get("poscar.linting.enabled")) {
+			collection.clear();
 		}
 	}));
 
@@ -51,6 +58,11 @@ export async function activate(context: vscode.ExtensionContext) {
 	vscode.languages.registerCodeLensProvider("poscar", {
 		provideCodeLenses(document, cancel): vscode.CodeLens[] {
 			const codeLenses: vscode.CodeLens[] = [];
+
+			const config = vscode.workspace.getConfiguration("vasp-support");
+			if (!config.get("poscar.codeLenses.enabled")) {
+				return [];
+			}
 
 			const poscarLines = parsePoscar(document);
 			if (poscarLines.length === 0) {
