@@ -1,4 +1,4 @@
-import { Diagnostic, DiagnosticSeverity, Range, SemanticTokensLegend, TextDocument, TextLine } from "vscode";
+import * as vscode from "vscode";
 
 const tokenTypes = [
     "comment",
@@ -8,7 +8,7 @@ const tokenTypes = [
     "invalid"
 ] as const;
 
-export const legend = new SemanticTokensLegend(tokenTypes.slice());
+export const legend = new vscode.SemanticTokensLegend(tokenTypes.slice());
 
 type TokenType = (typeof tokenTypes)[number];
 
@@ -27,19 +27,19 @@ type PoscarBlockType =
 
 interface PoscarBlock {
     description: string;
-    tokenize: (line: TextLine) => Token[];
-    validate: (poscarLine: PoscarLine) => Diagnostic[];
+    tokenize: (line: vscode.TextLine) => Token[];
+    validate: (poscarLine: PoscarLine) => vscode.Diagnostic[];
 }
 
 interface PoscarLine {
     type: PoscarBlockType;
     tokens: Token[];
-    line: TextLine;
+    line: vscode.TextLine;
 }
 
 interface Token {
     type?: TokenType;
-    range: Range;
+    range: vscode.Range;
     text: string;
 }
 
@@ -77,14 +77,14 @@ export const poscarBlockInfo: Record<PoscarBlockType, PoscarBlock> = {
             return tokens;
         },
         validate: poscarLine => {
-            const diagnostics: Diagnostic[] = [];
+            const diagnostics: vscode.Diagnostic[] = [];
             const tokens = poscarLine.tokens;
             tokens.slice(0, 3).forEach(t => {
                 if (!isNumber(t.text)) {
                     diagnostics.push(createDiagnostic(
                         "Scaling factor must be a number.",
                         t.range,
-                        DiagnosticSeverity.Error
+                        vscode.DiagnosticSeverity.Error
                     ));
                 }
             });
@@ -94,13 +94,13 @@ export const poscarBlockInfo: Record<PoscarBlockType, PoscarBlock> = {
                 diagnostics.push(createDiagnostic(
                     "The number of scaling factors must be either 1 or 3.",
                     tokens[0].range.union(tokens[1].range),
-                    DiagnosticSeverity.Error
+                    vscode.DiagnosticSeverity.Error
                 ));
             } else if (tokens.length > 3) {
                 diagnostics.push(createDiagnostic(
                     "The remainder of this line is superfluous and is treated as a comment.",
                     tokens[3].range.union(tokens[tokens.length - 1].range),
-                    DiagnosticSeverity.Warning
+                    vscode.DiagnosticSeverity.Warning
                 ));
             } else if (tokens.length === 3) {
                 tokens.forEach(t => {
@@ -108,7 +108,7 @@ export const poscarBlockInfo: Record<PoscarBlockType, PoscarBlock> = {
                         diagnostics.push(createDiagnostic(
                             "Individual scaling factors must be positive.",
                             t.range,
-                            DiagnosticSeverity.Error
+                            vscode.DiagnosticSeverity.Error
                         ));
                     }
                 });
@@ -136,14 +136,14 @@ export const poscarBlockInfo: Record<PoscarBlockType, PoscarBlock> = {
             return tokens;
         },
         validate: poscarLine => {
-            const diagnostics: Diagnostic[] = [];
+            const diagnostics: vscode.Diagnostic[] = [];
             const tokens = poscarLine.tokens;
             tokens.slice(0, 3).forEach(t => {
                 if (!isNumber(t.text)) {
                     diagnostics.push(createDiagnostic(
                         "Component of lattice vector must be a number.",
                         t.range,
-                        DiagnosticSeverity.Error
+                        vscode.DiagnosticSeverity.Error
                     ));
                 }
             });
@@ -153,13 +153,13 @@ export const poscarBlockInfo: Record<PoscarBlockType, PoscarBlock> = {
                 diagnostics.push(createDiagnostic(
                     "Each lattice vector must consist of 3 numbers. Too few given.",
                     tokens[0].range.union(tokens[tokens.length - 1].range),
-                    DiagnosticSeverity.Error
+                    vscode.DiagnosticSeverity.Error
                 ));
             } else if (tokens.length > 3) {
                 diagnostics.push(createDiagnostic(
                     "The remainder of this line is superfluous and is treated as a comment.",
                     tokens[3].range.union(tokens[tokens.length - 1].range),
-                    DiagnosticSeverity.Warning
+                    vscode.DiagnosticSeverity.Warning
                 ));
             }
             return diagnostics;
@@ -179,7 +179,7 @@ export const poscarBlockInfo: Record<PoscarBlockType, PoscarBlock> = {
             .map(t => createDiagnostic(
                 `Species name '${t.text}' is invalid`,
                 t.range,
-                DiagnosticSeverity.Error
+                vscode.DiagnosticSeverity.Error
             ));
             if (poscarLine.tokens.length === 0) {
                 diagnostics.push(createEmptyLineError(poscarLine.line));
@@ -201,7 +201,7 @@ export const poscarBlockInfo: Record<PoscarBlockType, PoscarBlock> = {
             .map(t => createDiagnostic(
                 "Number of atoms needs to be a positive integer.",
                 t.range,
-                DiagnosticSeverity.Error
+                vscode.DiagnosticSeverity.Error
             ));
             if (poscarLine.tokens.length === 0) {
                 diagnostics.push(createEmptyLineError(poscarLine.line));
@@ -220,7 +220,7 @@ export const poscarBlockInfo: Record<PoscarBlockType, PoscarBlock> = {
             return [];
         },
         validate: poscarLine => {
-            const diagnostics: Diagnostic[] = [];
+            const diagnostics: vscode.Diagnostic[] = [];
             if (poscarLine.tokens.length === 0) {
                 diagnostics.push(createEmptyLineError(poscarLine.line));
             } else {
@@ -229,13 +229,13 @@ export const poscarBlockInfo: Record<PoscarBlockType, PoscarBlock> = {
                     diagnostics.push(createDiagnostic(
                         "First letter on line must be 's' or 'S' in order to activate selective dynamics.",
                         token.range,
-                        DiagnosticSeverity.Error
+                        vscode.DiagnosticSeverity.Error
                     ));
                 } else if (!"selective dynamics".startsWith(token.text.toLowerCase())) {
                     diagnostics.push(createDiagnostic(
                         "Consider specifying 'selective dynamics' to avoid potential mistakes.",
                         token.range,
-                        DiagnosticSeverity.Hint
+                        vscode.DiagnosticSeverity.Hint
                     ));
                 }
             }
@@ -253,12 +253,12 @@ export const poscarBlockInfo: Record<PoscarBlockType, PoscarBlock> = {
             return [];
         },
         validate: poscarLine => {
-            const diagnostics: Diagnostic[] = [];
+            const diagnostics: vscode.Diagnostic[] = [];
             if (poscarLine.tokens.length === 0) {
                 diagnostics.push(createDiagnostic(
                     "Consider specifying 'direct' instead of having an empty line to avoid potential mistakes.",
                     poscarLine.line.rangeIncludingLineBreak,
-                    DiagnosticSeverity.Hint
+                    vscode.DiagnosticSeverity.Hint
                 ));
             } else {
                 const token = poscarLine.tokens[0];
@@ -268,7 +268,7 @@ export const poscarBlockInfo: Record<PoscarBlockType, PoscarBlock> = {
                         diagnostics.push(createDiagnostic(
                             "Consider specifying 'cartesian' to avoid potential mistakes.",
                             token.range,
-                            DiagnosticSeverity.Hint
+                            vscode.DiagnosticSeverity.Hint
                         ));
                     }
                 } else {
@@ -276,7 +276,7 @@ export const poscarBlockInfo: Record<PoscarBlockType, PoscarBlock> = {
                         diagnostics.push(createDiagnostic(
                             "Consider specifying 'direct' to avoid potential mistakes.",
                             token.range,
-                            DiagnosticSeverity.Hint
+                            vscode.DiagnosticSeverity.Hint
                         ));
                     }
                 }
@@ -311,7 +311,7 @@ export const poscarBlockInfo: Record<PoscarBlockType, PoscarBlock> = {
             .map(t => createDiagnostic(
                 "Component of position vector must be a number.",
                 t.range,
-                DiagnosticSeverity.Error
+                vscode.DiagnosticSeverity.Error
             ));
 
             diagnostics.push(...tokens.slice(3, 6)
@@ -319,7 +319,7 @@ export const poscarBlockInfo: Record<PoscarBlockType, PoscarBlock> = {
                 .map(t => createDiagnostic(
                     "Selective dynamics flag must be either 'T' or 'F'.",
                     t.range,
-                    DiagnosticSeverity.Error
+                    vscode.DiagnosticSeverity.Error
                 ))
             );
 
@@ -329,13 +329,13 @@ export const poscarBlockInfo: Record<PoscarBlockType, PoscarBlock> = {
                 diagnostics.push(createDiagnostic(
                     "Each position vector must consist of 3 numbers. Too few given.",
                     tokens[0].range.union(tokens[tokens.length - 1].range),
-                    DiagnosticSeverity.Error
+                    vscode.DiagnosticSeverity.Error
                 ));
             } else if (tokens.length > 6) {
                 diagnostics.push(createDiagnostic(
                     "The remainder of this line is superfluous and is treated as a comment.",
                     tokens[6].range.union(tokens[tokens.length - 1].range),
-                    DiagnosticSeverity.Warning
+                    vscode.DiagnosticSeverity.Warning
                 ));
             }
             return diagnostics;
@@ -352,7 +352,7 @@ export const poscarBlockInfo: Record<PoscarBlockType, PoscarBlock> = {
     // },
 };
 
-function createDiagnostic(message: string, range: Range, severity: DiagnosticSeverity): Diagnostic {
+function createDiagnostic(message: string, range: vscode.Range, severity: vscode.DiagnosticSeverity): vscode.Diagnostic {
     return {
         message: message,
         range: range,
@@ -361,8 +361,8 @@ function createDiagnostic(message: string, range: Range, severity: DiagnosticSev
     };
 }
 
-function createEmptyLineError(line: TextLine): Diagnostic {
-    return createDiagnostic("Line must not be empty.", line.range, DiagnosticSeverity.Error);
+function createEmptyLineError(line: vscode.TextLine): vscode.Diagnostic {
+    return createDiagnostic("Line must not be empty.", line.range, vscode.DiagnosticSeverity.Error);
 }
 
 function isNumber(str: string): boolean {
@@ -377,7 +377,7 @@ function isLetters(str: string): boolean {
     return /^[a-zA-Z]+$/.test(str);
 }
 
-function getLineAsToken(line: TextLine): Token | null {
+function getLineAsToken(line: vscode.TextLine): Token | null {
     const token = tokenizeLine(line, /^(\s*)(\S.*?)(\s*)$/);
     if (token) {
         return token[0];
@@ -386,18 +386,18 @@ function getLineAsToken(line: TextLine): Token | null {
     }
 }
 
-function splitLineToTokens(line: TextLine): Token[] {
+function splitLineToTokens(line: vscode.TextLine): Token[] {
     return tokenizeLine(line, /^(\s*)(\S+)(.*)$/);
 }
 
-function tokenizeLine(line: TextLine, matcher: RegExp): Token[] {
+function tokenizeLine(line: vscode.TextLine, matcher: RegExp): Token[] {
     const tokens: Token[] = [];
     let offset = 0;
     let matches = line.text.match(matcher);
 
     while (matches) {
         tokens.push({
-            range: new Range(
+            range: new vscode.Range(
                 line.lineNumber, offset += matches[1].length,
                 line.lineNumber, offset += matches[2].length
             ),
@@ -409,7 +409,7 @@ function tokenizeLine(line: TextLine, matcher: RegExp): Token[] {
     return tokens;
 }
 
-export function parsePoscar(document: TextDocument): PoscarLine[] {
+export function parsePoscar(document: vscode.TextDocument): PoscarLine[] {
     const poscarLines: PoscarLine[] = [];
     let nextLineIdx = 0;
 
