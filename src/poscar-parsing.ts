@@ -208,9 +208,22 @@ export function parsePoscar(document: vscode.TextDocument): PoscarLine[] {
     processLine("lattice");
     processLine("speciesNames", tokens => tokens.length > 0 && tokens[0].type === "string");
     processLine("numAtoms");
+
+    let numAtoms = 0;
+    for (const token of poscarLines[poscarLines.length - 1].tokens) {
+        if (token.type === "number") {
+            numAtoms += +token.text;
+        } else {
+            break;
+        }
+    }
+
     processLine("selDynamics", tokens => tokens.length > 0 && tokens[0].type === "keyword");
     processLine("positionMode");
-    while(processLine("positions")) {};
+
+    for (let atomIdx = 0; atomIdx < numAtoms; ++atomIdx) {
+        processLine("positions")
+    }
 
     return poscarLines;
 }
