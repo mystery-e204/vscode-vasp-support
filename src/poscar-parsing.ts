@@ -222,7 +222,7 @@ export function parsePoscar(document: vscode.TextDocument): PoscarLine[] {
     processLine("positionMode");
 
     for (let atomIdx = 0; atomIdx < numAtoms; ++atomIdx) {
-        processLine("positions")
+        processLine("positions");
     }
 
     return poscarLines;
