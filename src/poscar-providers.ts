@@ -35,6 +35,15 @@ export function registerPoscarCodeLensProvider(selector: vscode.DocumentSelector
     return vscode.languages.registerCodeLensProvider("poscar", {
         provideCodeLenses(document, cancel): vscode.CodeLens[] {
             const codeLenses: vscode.CodeLens[] = [];
+            function addCodeLense(type: PoscarBlockType, line: number) {
+                codeLenses.push(new vscode.CodeLens(
+                    document.lineAt(line).range,
+                    {
+                        title: poscarBlockTitles[type],
+                        command: ""
+                    }
+                ));
+            }
     
             const config = vscode.workspace.getConfiguration("vasp-support");
             if (!config.get("poscar.codeLenses.enabled")) {
@@ -46,27 +55,34 @@ export function registerPoscarCodeLensProvider(selector: vscode.DocumentSelector
                 return [];
             }
             
-            let curType = poscarLines[0].type;
+            let prevType = poscarLines[0].type;
             codeLenses.push(new vscode.CodeLens(
                 document.lineAt(0).range,
                 {
-                    title: poscarBlockTitles[curType],
+                    title: poscarBlockTitles[prevType],
                     command: ""
                 }
             ));
-    
-            poscarLines.forEach((line, lineNumber) => {
-                if (curType !== line.type) {
-                    curType = line.type;
-                    codeLenses.push(new vscode.CodeLens(
-                        document.lineAt(lineNumber).range,
-                        {
-                            title: poscarBlockTitles[curType],
-                            command: ""
+
+            for (let lineIdx = 1; lineIdx < poscarLines.length; ++lineIdx) {
+                const line = poscarLines[lineIdx];
+                if (prevType !== line.type) {
+                    addCodeLense(line.type, lineIdx);
+                    if (line.tokens.length === 0) {
+                        switch (prevType) {
+                            case "lattice":
+                                addCodeLense("speciesNames", lineIdx);
+                                break;
+                            case "numAtoms":
+                                addCodeLense("selDynamics", lineIdx);
+                                break;
+                            default:
+                                break;
                         }
-                    ));
+                    }
+                    prevType = line.type;
                 }
-            });
+            }
     
             return codeLenses;
         }
