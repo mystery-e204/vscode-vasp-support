@@ -60,11 +60,7 @@ const poscarBlockLinters: Readonly<Record<PoscarBlockType, Linter>> = {
                 vscode.DiagnosticSeverity.Error
             ));
         } else if (tokens.length > 3) {
-            diagnostics.push(createDiagnostic(
-                "The remainder of this line is superfluous and is treated as a comment.",
-                tokens[3].range.union(tokens[tokens.length - 1].range),
-                vscode.DiagnosticSeverity.Warning
-            ));
+            diagnostics.push(createRemainderWarning(poscarLine.line, tokens[3].range.start));
         } else if (tokens.length === 3) {
             tokens.forEach(t => {
                 if (+t.text < 0) {
@@ -99,11 +95,7 @@ const poscarBlockLinters: Readonly<Record<PoscarBlockType, Linter>> = {
                 vscode.DiagnosticSeverity.Error
             ));
         } else if (tokens.length > 3) {
-            diagnostics.push(createDiagnostic(
-                "The remainder of this line is superfluous and is treated as a comment.",
-                tokens[3].range.union(tokens[tokens.length - 1].range),
-                vscode.DiagnosticSeverity.Warning
-            ));
+            diagnostics.push(createRemainderWarning(poscarLine.line, tokens[3].range.start));
         }
         return diagnostics;
     },
@@ -111,7 +103,7 @@ const poscarBlockLinters: Readonly<Record<PoscarBlockType, Linter>> = {
         const diagnostics = poscarLine.tokens
         .filter(t => !isLetters(t.text))
         .map(t => createDiagnostic(
-            `Species name '${t.text}' is invalid`,
+            `Species name '${t.text}' is invalid.`,
             t.range,
             vscode.DiagnosticSeverity.Error
         ));
@@ -141,7 +133,7 @@ const poscarBlockLinters: Readonly<Record<PoscarBlockType, Linter>> = {
             const token = poscarLine.tokens[0];
             if (/^[^sS]/.test(token.text)) {
                 diagnostics.push(createDiagnostic(
-                    "First letter on line must be 's' or 'S' in order to activate selective dynamics.",
+                    "First character on line must be 's' or 'S' in order to activate selective dynamics.",
                     token.range,
                     vscode.DiagnosticSeverity.Error
                 ));
@@ -215,11 +207,7 @@ const poscarBlockLinters: Readonly<Record<PoscarBlockType, Linter>> = {
                 vscode.DiagnosticSeverity.Error
             ));
         } else if (tokens.length > 6) {
-            diagnostics.push(createDiagnostic(
-                "The remainder of this line is superfluous and is treated as a comment.",
-                tokens[6].range.union(tokens[tokens.length - 1].range),
-                vscode.DiagnosticSeverity.Warning
-            ));
+            diagnostics.push(createRemainderWarning(poscarLine.line, tokens[6].range.start));
         }
         return diagnostics;
     }
@@ -235,5 +223,13 @@ function createDiagnostic(message: string, range: vscode.Range, severity: vscode
 }
 
 function createEmptyLineError(line: vscode.TextLine): vscode.Diagnostic {
-    return createDiagnostic("Line must not be empty.", line.range, vscode.DiagnosticSeverity.Error);
+    return createDiagnostic("Line must not be empty.", line.rangeIncludingLineBreak, vscode.DiagnosticSeverity.Error);
+}
+
+function createRemainderWarning(line: vscode.TextLine, start: vscode.Position) {
+    return createDiagnostic(
+        "The remainder of this line is ignored by VASP. Consider removing it.",
+        line.range.with(start),
+        vscode.DiagnosticSeverity.Warning
+    );
 }
