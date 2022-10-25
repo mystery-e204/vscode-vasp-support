@@ -178,6 +178,18 @@ function tokenizeLine(line: vscode.TextLine, matcher: RegExp): Token[] {
     return tokens;
 }
 
+function getNumAtoms(tokens: Token[]): number {
+    let numAtoms = 0;
+    for (const token of tokens) {
+        if (token.type === "number") {
+            numAtoms += +token.text;
+        } else {
+            break;
+        }
+    }
+    return numAtoms;
+}
+
 export function parsePoscar(document: vscode.TextDocument): PoscarLine[] {
     const poscarLines: PoscarLine[] = [];
     let nextLineIdx = 0;
@@ -209,14 +221,7 @@ export function parsePoscar(document: vscode.TextDocument): PoscarLine[] {
     processLine("speciesNames", tokens => tokens.length > 0 && tokens[0].type === "string");
     processLine("numAtoms");
 
-    let numAtoms = 0;
-    for (const token of poscarLines[poscarLines.length - 1].tokens) {
-        if (token.type === "number") {
-            numAtoms += +token.text;
-        } else {
-            break;
-        }
-    }
+    const numAtoms = getNumAtoms(poscarLines[poscarLines.length - 1].tokens);
 
     processLine("selDynamics", tokens => tokens.length > 0 && tokens[0].type === "keyword");
     processLine("positionMode");
