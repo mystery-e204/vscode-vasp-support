@@ -141,7 +141,7 @@ const poscarBlockLinters: Readonly<Record<PoscarBlockType, Linter>> = {
                 diagnostics.push(createDiagnostic(
                     "Consider specifying 'selective dynamics' to avoid potential mistakes.",
                     token.range,
-                    vscode.DiagnosticSeverity.Hint
+                    vscode.DiagnosticSeverity.Warning
                 ));
             }
         }
@@ -153,7 +153,7 @@ const poscarBlockLinters: Readonly<Record<PoscarBlockType, Linter>> = {
             diagnostics.push(createDiagnostic(
                 "Consider specifying 'direct' instead of having an empty line to avoid potential mistakes.",
                 poscarLine.line.rangeIncludingLineBreak,
-                vscode.DiagnosticSeverity.Hint
+                vscode.DiagnosticSeverity.Warning
             ));
         } else {
             const token = poscarLine.tokens[0];
@@ -163,7 +163,7 @@ const poscarBlockLinters: Readonly<Record<PoscarBlockType, Linter>> = {
                     diagnostics.push(createDiagnostic(
                         "Consider specifying 'cartesian' to avoid potential mistakes.",
                         token.range,
-                        vscode.DiagnosticSeverity.Hint
+                        vscode.DiagnosticSeverity.Warning
                     ));
                 }
             } else {
@@ -171,7 +171,7 @@ const poscarBlockLinters: Readonly<Record<PoscarBlockType, Linter>> = {
                     diagnostics.push(createDiagnostic(
                         "Consider specifying 'direct' to avoid potential mistakes.",
                         token.range,
-                        vscode.DiagnosticSeverity.Hint
+                        vscode.DiagnosticSeverity.Warning
                     ));
                 }
             }
