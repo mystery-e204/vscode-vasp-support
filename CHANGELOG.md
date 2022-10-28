@@ -11,6 +11,12 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 * POSCAR support
 * KPOINTS support
 
+## [0.1.3]
+
+### Added
+
+* Persistent storage for INCAR tags. Once parsed, the INCAR information is now stored offline. Dramatically speeds up the hover provider on subsequent starts.
+
 ## [0.1.2]
 
 ### Changed
