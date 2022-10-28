@@ -90,6 +90,10 @@ export class IncarTag {
         return incarTag;
     }
 
+    static fromObject(obj: Record<string, string>): IncarTag {
+        return Object.assign(new IncarTag(""), obj);
+    }
+
     getHoverText(baseUrl: string): vscode.MarkdownString {
         let markdownStr = `# [${this.name}](/wiki/index.php/${this.name} "${this.name}")`;
     
