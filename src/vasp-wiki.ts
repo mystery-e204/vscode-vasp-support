@@ -1,5 +1,8 @@
 import { mwn } from 'mwn';
 import * as cheerio from 'cheerio';
+import { MathConverter } from './math-converter';
+import { HtmlToMarkdownConverter } from './html-to-markdown';
+import { IncarTag } from './incar-tag';
 
 interface WikiPage {
 	title: string,
@@ -81,14 +84,20 @@ async function parseIncarTags(bot: mwn, wikiPages: WikiPage[]): Promise<Map<stri
     return htmlMap;
 }
 
-export async function getIncarTags(baseUrl: string): Promise<Map<string, string>> {
-    const bot = new mwn({
-        apiUrl: `${baseUrl}/wiki/api.php`
-    });
+export async function fetchIncarTags(baseUrl: string): Promise<IncarTag[]> {
+    const bot = new mwn({ apiUrl: `${baseUrl}/wiki/api.php` });
+    const mathConverter = new MathConverter();
+	const htmlToMarkdownConverter = new HtmlToMarkdownConverter(mathConverter);
 
     const pageIDs = await fetchIncarTagPageIDs(bot);
     const wikiPages = await fetchIncarTagWikiPages(bot, pageIDs);
     const htmlMap = await parseIncarTags(bot, wikiPages);
 
-    return htmlMap;
+    const incarTags = new Array<IncarTag>();
+	htmlMap.forEach((val, key) => {
+		const markdownStr = htmlToMarkdownConverter.convert(val);
+		incarTags.push(IncarTag.fromMarkdown(markdownStr, key));
+	});
+
+    return incarTags;
 }
