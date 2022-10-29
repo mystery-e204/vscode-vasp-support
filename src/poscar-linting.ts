@@ -31,7 +31,21 @@ function updateDiagnostics(document: vscode.TextDocument, collection: vscode.Dia
 	const config = vscode.workspace.getConfiguration("vasp-support");
 	if (document.languageId === "poscar" && config.get("poscar.linting.enabled")) {
 		const poscarLines = parsePoscar(document);
-		collection.set(document.uri, poscarLines.flatMap(l => poscarBlockLinters[l.type](l)));
+        const diagnostics = poscarLines.flatMap(l => poscarBlockLinters[l.type](l));
+
+        const speciesNamesLine = poscarLines.find(l => l.type === "speciesNames");
+        const numAtomsLine = poscarLines.find(l => l.type === "numAtoms");
+        if (speciesNamesLine && numAtomsLine) {
+            if (speciesNamesLine.tokens.length !== numAtomsLine.tokens.length) {
+                diagnostics.push(createDiagnostic(
+                    "Number of atoms must be specified for each atomic species.",
+                    numAtomsLine.line.range,
+                    vscode.DiagnosticSeverity.Error
+                ));
+            }
+        }
+
+        collection.set(document.uri, diagnostics);
 	}
 }
 
