@@ -4,7 +4,7 @@ export const tokenTypes = [
     "comment",
     "string",
     "number",
-    "keyword",
+    "constant",
     "invalid"
 ] as const;
 
@@ -18,16 +18,14 @@ export type PoscarBlockType =
     "numAtoms" |
     "selDynamics" |
     "positionMode" |
-    "positions" ;//|
-    // "lattVelocities" |
-    // "atomVelocities" |
+    "positions" |
+    "lattVelocitiesStart" |
+    "lattVelocitiecState" |
+    "lattVelocitiesVels" |
+    "lattVelocitiesLatt" |
+    "velocityMode" |
+    "velocities";
     // "mdExtra";
-
-interface PoscarBlock {
-    description: string;
-    tokenize: (line: vscode.TextLine) => Token[];
-    validate: (poscarLine: PoscarLine) => vscode.Diagnostic[];
-}
 
 export interface PoscarLine {
     type: PoscarBlockType;
@@ -70,23 +68,7 @@ const tokenizers: Readonly<Record<PoscarBlockType, Tokenizer>> = {
         }
         return tokens;
     },
-    lattice: line => {
-        const tokens = splitLineToTokens(line);
-        if (tokens.length < 3) {
-            tokens.forEach(t => t.type = "invalid");
-        } else {
-            tokens.forEach((t, tIdx) => {
-                if (tIdx < 3 && isNumber(t.text)) {
-                    t.type = "number";
-                } else if (tIdx >= 3) {
-                    t.type = "comment";
-                } else {
-                    t.type = "invalid";
-                }
-            });
-        }
-        return tokens;
-    },
+    lattice: tokenizeVector,
     speciesNames: line => {
         return splitLineToTokens(line).map(t => {
             t.type = isLetters(t.text) ? "string" : "invalid";
@@ -99,22 +81,8 @@ const tokenizers: Readonly<Record<PoscarBlockType, Tokenizer>> = {
             return t;
         });
     },
-    selDynamics: line => {
-        const token = getLineAsToken(line);
-        if (token) {
-            token.type = /^[sS]/.test(token.text) ? "keyword" : "invalid";
-            return [token];
-        }
-        return [];
-    },
-    positionMode: line => {
-        const token = getLineAsToken(line);
-        if (token) {
-            token.type = "keyword";
-            return [token];
-        }
-        return [];
-    },
+    selDynamics: line => tokenizeConstLine(line, /^[sS]/),
+    positionMode: tokenizeConstLine,
     positions: line => {
         const tokens = splitLineToTokens(line);
         if (tokens.length < 3) {
@@ -124,15 +92,63 @@ const tokenizers: Readonly<Record<PoscarBlockType, Tokenizer>> = {
                 if (tIdx < 3) {
                     t.type = isNumber(t.text) ? "number" : "invalid";
                 } else if (tIdx < 6) {
-                    t.type = t.text === "T" || t.text === "F" ? "keyword" : "invalid";
+                    t.type = t.text === "T" || t.text === "F" ? "constant" : "invalid";
                 } else {
                     t.type = "comment";
                 }
             });
         }
         return tokens;
-    }
+    },
+    lattVelocitiesStart: line => tokenizeConstLine(line, /^[lL]/),
+    lattVelocitiecState: line => {
+        const tokens = splitLineToTokens(line);
+        tokens.forEach((t, tIdx) => {
+            if (tIdx > 0) {
+                t.type = "comment";
+            } else if (isInteger(t.text)) {
+                t.type = "number";
+            } else {
+                t.type = "invalid";
+            }
+        });
+        return tokens;
+    },
+    lattVelocitiesVels: tokenizeVector,
+    lattVelocitiesLatt: tokenizeVector,
+    velocityMode: tokenizeConstLine,
+    velocities: tokenizeVector
 };
+
+function tokenizeVector(line: vscode.TextLine): Token[] {
+    const tokens = splitLineToTokens(line);
+    if (tokens.length < 3) {
+        tokens.forEach(t => t.type = "invalid");
+    } else {
+        tokens.forEach((t, tIdx) => {
+            if (tIdx < 3 && isNumber(t.text)) {
+                t.type = "number";
+            } else if (tIdx >= 3) {
+                t.type = "comment";
+            } else {
+                t.type = "invalid";
+            }
+        });
+    }
+    return tokens;
+}
+
+function tokenizeConstLine(line: vscode.TextLine, test?: RegExp): Token[] {
+    const token = getLineAsToken(line);
+    if (token) {
+        token.type = "constant";
+        if (test && !test.test(token.text)) {
+            token.type = "invalid";
+        }
+        return [token];
+    }
+    return [];
+}
 
 export function isNumber(str: string): boolean {
     return !Number.isNaN(+str);
@@ -194,41 +210,50 @@ export function parsePoscar(document: vscode.TextDocument): PoscarLine[] {
     const poscarLines: PoscarLine[] = [];
     let nextLineIdx = 0;
 
-    function processLine(type: PoscarBlockType, optionalTest?: (tokens: Token[]) => boolean): boolean {
-        if (document.lineCount > nextLineIdx) {
-            const line = document.lineAt(nextLineIdx++);
-            const tokens = tokenizers[type](line);
-            if (optionalTest && !optionalTest(tokens)) {
-                --nextLineIdx;
-            } else {
-                poscarLines.push({
-                    type: type,
-                    tokens: tokens,
-                    line: line
-                });
+    function processLine(type: PoscarBlockType, repeat?: number, optionalTest?: (tokens: Token[]) => boolean): boolean {
+        const myRepeat = repeat ? repeat : 1;
+        let isOk = true;
+        for (let iter = 0; iter < myRepeat; ++iter) {
+            if (document.lineCount > nextLineIdx) {
+                const line = document.lineAt(nextLineIdx++);
+                const tokens = tokenizers[type](line);
+                if (optionalTest && !optionalTest(tokens)) {
+                    --nextLineIdx;
+                    isOk = false;
+                } else {
+                    poscarLines.push({
+                        type: type,
+                        tokens: tokens,
+                        line: line
+                    });
+                    isOk &&= true;
+                }
             }
-            return true;
-        } else {
-            return false;
+            isOk &&= true;
         }
+        return isOk;
     }
 
     processLine("comment");
     processLine("scaling");
-    processLine("lattice");
-    processLine("lattice");
-    processLine("lattice");
-    processLine("speciesNames", tokens => tokens.length > 0 && tokens[0].type === "string");
+    processLine("lattice", 3);
+    processLine("speciesNames", 1, tokens => tokens.length > 0 && tokens[0].type === "string");
     processLine("numAtoms");
 
     const numAtoms = getNumAtoms(poscarLines[poscarLines.length - 1].tokens);
 
-    processLine("selDynamics", tokens => tokens.length > 0 && tokens[0].type === "keyword");
+    processLine("selDynamics", 1, tokens => tokens.length > 0 && tokens[0].type === "constant");
     processLine("positionMode");
+    processLine("positions", numAtoms);
 
-    for (let atomIdx = 0; atomIdx < numAtoms; ++atomIdx) {
-        processLine("positions");
+    if (processLine("lattVelocitiesStart", 1, tokens => tokens.length > 0 && tokens[0].type === "constant")) {
+        processLine("lattVelocitiecState");
+        processLine("lattVelocitiesVels", 3);
+        processLine("lattVelocitiesLatt", 3);
     }
+
+    processLine("velocityMode");
+    processLine("velocities", numAtoms);
 
     return poscarLines;
 }

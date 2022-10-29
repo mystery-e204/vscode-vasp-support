@@ -74,31 +74,7 @@ const poscarBlockLinters: Readonly<Record<PoscarBlockType, Linter>> = {
         }
         return diagnostics;
     },
-    lattice: poscarLine => {
-        const diagnostics: vscode.Diagnostic[] = [];
-        const tokens = poscarLine.tokens;
-        tokens.slice(0, 3).forEach(t => {
-            if (!isNumber(t.text)) {
-                diagnostics.push(createDiagnostic(
-                    "Component of lattice vector must be a number.",
-                    t.range,
-                    vscode.DiagnosticSeverity.Error
-                ));
-            }
-        });
-        if (tokens.length === 0) {
-            diagnostics.push(createEmptyLineError(poscarLine.line));
-        } else if (tokens.length < 3) {
-            diagnostics.push(createDiagnostic(
-                "Each lattice vector must consist of 3 numbers. Too few given.",
-                tokens[0].range.union(tokens[tokens.length - 1].range),
-                vscode.DiagnosticSeverity.Error
-            ));
-        } else if (tokens.length > 3) {
-            diagnostics.push(createRemainderWarning(poscarLine.line, tokens[3].range.start));
-        }
-        return diagnostics;
-    },
+    lattice: lintVector,
     speciesNames: poscarLine => {
         const diagnostics = poscarLine.tokens
         .filter(t => !isLetters(t.text))
@@ -125,59 +101,8 @@ const poscarBlockLinters: Readonly<Record<PoscarBlockType, Linter>> = {
         }
         return diagnostics;
     },
-    selDynamics: poscarLine => {
-        const diagnostics: vscode.Diagnostic[] = [];
-        if (poscarLine.tokens.length === 0) {
-            diagnostics.push(createEmptyLineError(poscarLine.line));
-        } else {
-            const token = poscarLine.tokens[0];
-            if (/^[^sS]/.test(token.text)) {
-                diagnostics.push(createDiagnostic(
-                    "First character on line must be 's' or 'S' in order to activate selective dynamics.",
-                    token.range,
-                    vscode.DiagnosticSeverity.Error
-                ));
-            } else if (!"selective dynamics".startsWith(token.text.toLowerCase())) {
-                diagnostics.push(createDiagnostic(
-                    "Consider specifying 'selective dynamics' to avoid potential mistakes.",
-                    token.range,
-                    vscode.DiagnosticSeverity.Warning
-                ));
-            }
-        }
-        return diagnostics;
-    },
-    positionMode: poscarLine => {
-        const diagnostics: vscode.Diagnostic[] = [];
-        if (poscarLine.tokens.length === 0) {
-            diagnostics.push(createDiagnostic(
-                "Consider specifying 'direct' instead of having an empty line to avoid potential mistakes.",
-                poscarLine.line.rangeIncludingLineBreak,
-                vscode.DiagnosticSeverity.Warning
-            ));
-        } else {
-            const token = poscarLine.tokens[0];
-            const firstLetter = token.text ? token.text[0].toLowerCase() : "";
-            if (firstLetter === "c" || firstLetter === "k") {
-                if (!"artesian".startsWith(token.text.slice(1).toLowerCase())) {
-                    diagnostics.push(createDiagnostic(
-                        "Consider specifying 'cartesian' to avoid potential mistakes.",
-                        token.range,
-                        vscode.DiagnosticSeverity.Warning
-                    ));
-                }
-            } else {
-                if (!"direct".startsWith(token.text.toLowerCase())) {
-                    diagnostics.push(createDiagnostic(
-                        "Consider specifying 'direct' to avoid potential mistakes.",
-                        token.range,
-                        vscode.DiagnosticSeverity.Warning
-                    ));
-                }
-            }
-        }
-        return diagnostics;
-    },
+    selDynamics: poscarLine => lintConstLine(poscarLine, "selective dynamics"),
+    positionMode: poscarLine => lintMode(poscarLine, "direct"),
     positions: poscarLine => {
         const tokens = poscarLine.tokens;
 
@@ -210,7 +135,26 @@ const poscarBlockLinters: Readonly<Record<PoscarBlockType, Linter>> = {
             diagnostics.push(createRemainderWarning(poscarLine.line, tokens[6].range.start));
         }
         return diagnostics;
-    }
+    },
+    lattVelocitiesStart: poscarLine => lintConstLine(poscarLine, "Lattice velocities and vectors"),
+    lattVelocitiecState: poscarLine => {
+        const tokens = poscarLine.tokens;
+        const diagnostics: vscode.Diagnostic[] = [];
+        if (tokens.length === 0) {
+            diagnostics.push(createEmptyLineError(poscarLine.line));
+        } else if (!isInteger(tokens[0].text)) {
+            diagnostics.push(createDiagnostic(
+                "Initialization state needs to be an integer",
+                tokens[0].range,
+                vscode.DiagnosticSeverity.Error
+            ));
+        }
+        return diagnostics;
+    },
+    lattVelocitiesVels: lintVector,
+    lattVelocitiesLatt: lintVector,
+    velocityMode: lintMode,
+    velocities: lintVector
 };
 
 function createDiagnostic(message: string, range: vscode.Range, severity: vscode.DiagnosticSeverity): vscode.Diagnostic {
@@ -232,4 +176,90 @@ function createRemainderWarning(line: vscode.TextLine, start: vscode.Position) {
         line.range.with(start),
         vscode.DiagnosticSeverity.Warning
     );
+}
+
+function lintVector(poscarLine: PoscarLine): vscode.Diagnostic[] {
+    const diagnostics: vscode.Diagnostic[] = [];
+    const tokens = poscarLine.tokens;
+    tokens.slice(0, 3).forEach(t => {
+        if (!isNumber(t.text)) {
+            diagnostics.push(createDiagnostic(
+                "Vector component must be a number.",
+                t.range,
+                vscode.DiagnosticSeverity.Error
+            ));
+        }
+    });
+    if (tokens.length === 0) {
+        diagnostics.push(createEmptyLineError(poscarLine.line));
+    } else if (tokens.length < 3) {
+        diagnostics.push(createDiagnostic(
+            "Vector must consist of 3 numbers. Too few given.",
+            tokens[0].range.union(tokens[tokens.length - 1].range),
+            vscode.DiagnosticSeverity.Error
+        ));
+    } else if (tokens.length > 3) {
+        diagnostics.push(createRemainderWarning(poscarLine.line, tokens[3].range.start));
+    }
+    return diagnostics;
+}
+
+function lintConstLine(poscarLine: PoscarLine, content: string): vscode.Diagnostic[] {
+    const diagnostics: vscode.Diagnostic[] = [];
+    if (poscarLine.tokens.length === 0) {
+        diagnostics.push(createEmptyLineError(poscarLine.line));
+    } else {
+        const token = poscarLine.tokens[0];
+        const startLower = content[0].toLowerCase();
+        const startUpper = startLower.toUpperCase();
+        const regex = new RegExp(`^[${startLower}${startUpper}]`);
+        if (!regex.test(token.text)) {
+            diagnostics.push(createDiagnostic(
+                `First non-space character on line must be '${startLower}' or '${startUpper}'.`,
+                token.range,
+                vscode.DiagnosticSeverity.Error
+            ));
+        } else if (!content.startsWith(token.text.toLowerCase())) {
+            diagnostics.push(createDiagnostic(
+                `Consider specifying '${content}' to avoid potential mistakes.`,
+                token.range,
+                vscode.DiagnosticSeverity.Warning
+            ));
+        }
+    }
+    return diagnostics;
+}
+
+function lintMode(poscarLine: PoscarLine, emptyMode?: string) {
+    const diagnostics: vscode.Diagnostic[] = [];
+    if (poscarLine.tokens.length === 0) {
+        if (emptyMode) {
+            diagnostics.push(createDiagnostic(
+                `Consider specifying '${emptyMode}' instead of an empty line to avoid potential mistakes.`,
+                poscarLine.line.rangeIncludingLineBreak,
+                vscode.DiagnosticSeverity.Warning
+            ));
+        }
+    } else {
+        const token = poscarLine.tokens[0];
+        const firstLetter = token.text ? token.text[0].toLowerCase() : "";
+        if (firstLetter === "c" || firstLetter === "k") {
+            if (!"artesian".startsWith(token.text.slice(1).toLowerCase())) {
+                diagnostics.push(createDiagnostic(
+                    "Consider specifying 'cartesian' to avoid potential mistakes.",
+                    token.range,
+                    vscode.DiagnosticSeverity.Warning
+                ));
+            }
+        } else {
+            if (!"direct".startsWith(token.text.toLowerCase())) {
+                diagnostics.push(createDiagnostic(
+                    "Consider specifying 'direct' to avoid potential mistakes.",
+                    token.range,
+                    vscode.DiagnosticSeverity.Warning
+                ));
+            }
+        }
+    }
+    return diagnostics;
 }
