@@ -11,7 +11,13 @@ const poscarBlockTitles: Readonly<Record<PoscarBlockType, string>> = {
     numAtoms: "Atoms per species",
     selDynamics: "Selective dynamics",
     positionMode: "Position mode",
-    positions: "Atom positions"
+    positions: "Atom positions",
+    lattVelocitiesStart: "Start of lattice velocities",
+    lattVelocitiecState: "Initialization state",
+    lattVelocitiesVels: "Lattice velocities",
+    lattVelocitiesLatt: "Lattice",
+    velocityMode: "Velocity mode",
+    velocities: "Atom velocities"
 };
 
 export function registerPoscarSemanticTokensProvider(selector: vscode.DocumentSelector): vscode.Disposable {
@@ -56,13 +62,7 @@ export function registerPoscarCodeLensProvider(selector: vscode.DocumentSelector
             }
             
             let prevType = poscarLines[0].type;
-            codeLenses.push(new vscode.CodeLens(
-                document.lineAt(0).range,
-                {
-                    title: poscarBlockTitles[prevType],
-                    command: ""
-                }
-            ));
+            addCodeLense(prevType, 0);
 
             for (let lineIdx = 1; lineIdx < poscarLines.length; ++lineIdx) {
                 const line = poscarLines[lineIdx];

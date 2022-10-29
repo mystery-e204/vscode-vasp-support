@@ -53,6 +53,10 @@
       {
         "id": "invalid",
         "description": "An invalid symbol"
+      },
+      {
+        "id": "constant",
+        "description": "A language-specific constant"
       }
     ],
     "semanticTokenScopes": [
@@ -60,6 +64,9 @@
         "scopes": {
           "invalid": [
             "invalid.illegal"
+          ],
+          "constant": [
+            "constant.language"
           ]
         }
       }
