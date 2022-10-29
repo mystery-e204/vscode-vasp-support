@@ -37,8 +37,8 @@
           "POSCAR"
         ],
         "filenamePatterns": [
-          "POSCAR",
-          "POSCAR{-,_,.,[0-9]}*"
+          "{POSCAR,CONTCAR}",
+          "{POSCAR,CONTCAR}{-,_,.,[0-9]}*"
         ]
       }
     ],
