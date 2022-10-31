@@ -8,6 +8,12 @@ All notable changes to the "vasp-support" extension will be documented in this f
 
 * KPOINTS support
 
+## [0.2.1]
+
+### Fixed
+
+* Certain INCAR tags being parsed wrongly (e.g. LWAVE)
+
 ## [0.2.0]
 
 ### Added
