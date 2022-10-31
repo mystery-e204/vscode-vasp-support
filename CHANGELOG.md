@@ -1,15 +1,23 @@
 # Change Log
 
-All notable changes to the "incar-support" extension will be documented in this file.
-
-Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
+All notable changes to the "vasp-support" extension will be documented in this file.
 
 ## [Unreleased]
 
 ### Added
 
-* POSCAR support
 * KPOINTS support
+
+## [0.2.0]
+
+### Added
+
+* POSCAR/CONTCAR support
+    * Semantic highlighting
+    * Linting
+    * Setting to toggle linting
+    * Code lenses
+    * Setting to toggle code lenses
 
 ## [0.1.3]
 
