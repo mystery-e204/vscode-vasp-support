@@ -52,9 +52,7 @@ async function fetchIncarTagWikiPages(bot: mwn, pageIds: number[]): Promise<Wiki
             let maxEnd = body.lastIndexOf("\n");
             maxEnd = maxEnd >= 0 ? maxEnd : body.length;
             let end = maxEnd;
-            let newEnd = body.search(/\s*\n----\s*\n/);
-            end = newEnd >= 0 ? Math.min(end, newEnd) : end;
-            newEnd = body.search(/\s*\n\s*<hr \/>/);
+            const newEnd = body.search(/(:?\s*\n----\s*\n|\s*\n\s*<hr \/>|\s*\n\s*== )/);
             end = newEnd >= 0 ? Math.min(end, newEnd) : end;
 
             wikiPages.push({
