@@ -3,16 +3,22 @@
 import * as vscode from 'vscode';
 import { IncarTag } from './incar-tag';
 import { fetchIncarTags } from './vasp-wiki';
+import { registerPoscarCodeLensProvider, registerPoscarSemanticTokensProvider } from './poscar-providers';
+import { registerPoscarLinter } from './poscar-linting';
 
 const baseUrl = "https://www.vasp.at";
 
 export async function activate(context: vscode.ExtensionContext) {
+	context.subscriptions.push(registerPoscarSemanticTokensProvider("poscar"));
+	context.subscriptions.push(registerPoscarCodeLensProvider("poscar"));
+	context.subscriptions.push(...registerPoscarLinter("poscar"));
+
 	const incarTagsFileUri = vscode.Uri.joinPath(context.globalStorageUri, "incar-tags.json");
 	let incarTags = await readIncarTags(incarTagsFileUri);
 	let incarHovers = new Map(incarTags.map(t => [t.name, t.getHoverText(baseUrl)]));
 
 	vscode.languages.registerHoverProvider("incar", {
-		provideHover(document, position, token) {
+		provideHover(document, position, cancel) {
 			const range = document.getWordRangeAtPosition(position);
 			const word = document.getText(range).toUpperCase();
 
