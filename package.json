@@ -15,7 +15,8 @@
     "url": "https://github.com/mystery-e204/vscode-vasp-support"
   },
   "activationEvents": [
-    "onLanguage:incar"
+    "onLanguage:incar",
+    "onLanguage:poscar"
   ],
   "main": "./dist/main.js",
   "contributes": {
@@ -29,6 +30,16 @@
           "INCAR",
           "INCAR{-,_,.,[0-9]}*"
         ]
+      },
+      {
+        "id": "poscar",
+        "aliases": [
+          "POSCAR"
+        ],
+        "filenamePatterns": [
+          "{POSCAR,CONTCAR}",
+          "{POSCAR,CONTCAR}{-,_,.,[0-9]}*"
+        ]
       }
     ],
     "grammars": [
@@ -37,7 +48,44 @@
         "scopeName": "source.incar",
         "path": "./syntaxes/incar.tmLanguage.json"
       }
-    ]
+    ],
+    "semanticTokenTypes": [
+      {
+        "id": "invalid",
+        "description": "An invalid symbol"
+      },
+      {
+        "id": "constant",
+        "description": "A language-specific constant"
+      }
+    ],
+    "semanticTokenScopes": [
+      {
+        "scopes": {
+          "invalid": [
+            "invalid.illegal"
+          ],
+          "constant": [
+            "constant.language"
+          ]
+        }
+      }
+    ],
+    "configuration":{
+      "title": "VASP Support",
+      "properties": {
+        "vasp-support.poscar.codeLenses.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Shows short descriptions of the POSCAR file format inbetween lines."
+        },
+        "vasp-support.poscar.linting.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Shows errors, warnings and hints in POSCAR files."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run esbuild-base -- --minify-whitespace",
