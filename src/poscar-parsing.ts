@@ -43,14 +43,13 @@ type Tokenizer = (line: vscode.TextLine) => Token[];
 
 const tokenizers: Readonly<Record<PoscarBlockType, Tokenizer>> = {
     comment: line => {
-        const token = getLineAsToken(line);
-        if (token) {
-            token.type = "comment";
-        }
-        return token ? [token] : [];
+        return tokenizeLine(line).map(t => {
+            t.type = "comment";
+            return t;
+        });
     },
     scaling: line => {
-        const tokens = splitLineToTokens(line);
+        const tokens = tokenizeLine(line);
         if (tokens.length === 1 && isNumber(tokens[0].text)) {
             tokens[0].type = "number";
         } else if (tokens.length === 2) {
@@ -70,13 +69,13 @@ const tokenizers: Readonly<Record<PoscarBlockType, Tokenizer>> = {
     },
     lattice: tokenizeVector,
     speciesNames: line => {
-        return splitLineToTokens(line).map(t => {
+        return tokenizeLine(line).map(t => {
             t.type = isLetters(t.text) ? "string" : "invalid";
             return t;
         });
     },
     numAtoms: line => {
-        return splitLineToTokens(line).map(t => {
+        return tokenizeLine(line).map(t => {
             t.type = isInteger(t.text) ? "number" : "invalid";
             return t;
         });
@@ -84,7 +83,7 @@ const tokenizers: Readonly<Record<PoscarBlockType, Tokenizer>> = {
     selDynamics: line => tokenizeConstLine(line, /^[sS]/),
     positionMode: tokenizeConstLine,
     positions: line => {
-        const tokens = splitLineToTokens(line);
+        const tokens = tokenizeLine(line);
         if (tokens.length < 3) {
             tokens.forEach(t => t.type = "invalid");
         } else {
@@ -102,7 +101,7 @@ const tokenizers: Readonly<Record<PoscarBlockType, Tokenizer>> = {
     },
     lattVelocitiesStart: line => tokenizeConstLine(line, /^[lL]/),
     lattVelocitiecState: line => {
-        const tokens = splitLineToTokens(line);
+        const tokens = tokenizeLine(line);
         tokens.forEach((t, tIdx) => {
             if (tIdx > 0) {
                 t.type = "comment";
@@ -121,7 +120,7 @@ const tokenizers: Readonly<Record<PoscarBlockType, Tokenizer>> = {
 };
 
 function tokenizeVector(line: vscode.TextLine): Token[] {
-    const tokens = splitLineToTokens(line);
+    const tokens = tokenizeLine(line);
     if (tokens.length < 3) {
         tokens.forEach(t => t.type = "invalid");
     } else {
@@ -139,15 +138,19 @@ function tokenizeVector(line: vscode.TextLine): Token[] {
 }
 
 function tokenizeConstLine(line: vscode.TextLine, test?: RegExp): Token[] {
-    const token = getLineAsToken(line);
-    if (token) {
-        token.type = "constant";
-        if (test && !test.test(token.text)) {
-            token.type = "invalid";
+    const tokens = tokenizeLine(line);
+    if (tokens.length > 0) {
+        if (test && !test.test(tokens[0].text)) {
+            tokens.forEach(t => t.type = "invalid");
+        } else {
+            let foundComment = false;
+            for (let t of tokens) {
+                foundComment ||= /^[#!%]/.test(t.text);
+                t.type = foundComment ? "comment" : "constant";
+            }   
         }
-        return [token];
     }
-    return [];
+    return tokens;
 }
 
 export function isNumber(str: string): boolean {
@@ -162,20 +165,8 @@ export function isLetters(str: string): boolean {
     return /^[a-zA-Z]+$/.test(str);
 }
 
-function getLineAsToken(line: vscode.TextLine): Token | null {
-    const token = tokenizeLine(line, /^(\s*)(\S.*?)(\s*)$/);
-    if (token) {
-        return token[0];
-    } else {
-        return null;
-    }
-}
-
-function splitLineToTokens(line: vscode.TextLine): Token[] {
-    return tokenizeLine(line, /^(\s*)(\S+)(.*)$/);
-}
-
-function tokenizeLine(line: vscode.TextLine, matcher: RegExp): Token[] {
+function tokenizeLine(line: vscode.TextLine): Token[] {
+    const matcher = /^(\s*)(\S+)(.*)$/;
     const tokens: Token[] = [];
     let offset = 0;
     let matches = line.text.match(matcher);
