@@ -50,21 +50,21 @@ const tokenizers: Readonly<Record<PoscarBlockType, Tokenizer>> = {
     },
     scaling: line => {
         const tokens = tokenizeLine(line);
-        if (tokens.length === 1 && isNumber(tokens[0].text)) {
-            tokens[0].type = "number";
-        } else if (tokens.length === 2) {
-            tokens.forEach(t => t.type = "invalid");
-        } else {
-            tokens.forEach((t, tIdx) => {
-                if (tIdx < 3 && isNumber(t.text) && +t.text > 0) {
-                    t.type = "number";
-                } else if (tIdx >= 3) {
-                    t.type = "comment";
-                } else {
-                    t.type = "invalid";
-                }
-            });
+
+        let stopIdx = tokens.findIndex(t => !isNumber(t.text));
+        if (stopIdx === -1) {
+            stopIdx = tokens.length;
         }
+
+        if (stopIdx === 2 || stopIdx > 3) {
+            tokens.slice(0, stopIdx).forEach(t => t.type = "invalid");
+        } else if (stopIdx === 1) {
+            tokens[0].type = "number";
+        } else if (stopIdx === 3) {
+            tokens.slice(0, 3).forEach(t => t.type = +t.text > 0 ? "number" : "invalid");
+        }
+        tokens.slice(stopIdx).forEach(t => t.type = "comment");
+
         return tokens;
     },
     lattice: tokenizeVector,
@@ -75,10 +75,15 @@ const tokenizers: Readonly<Record<PoscarBlockType, Tokenizer>> = {
         });
     },
     numAtoms: line => {
-        return tokenizeLine(line).map(t => {
-            t.type = isInteger(t.text) ? "number" : "invalid";
-            return t;
-        });
+        const tokens = tokenizeLine(line);
+        let stopIdx = tokens.findIndex(t => !isInteger(t.text));
+        if (stopIdx === -1) {
+            stopIdx = tokens.length;
+        }
+
+        tokens.slice(0, stopIdx).forEach(t => t.type = "number");
+        tokens.slice(stopIdx).forEach(t => t.type = "comment");
+        return tokens;
     },
     selDynamics: line => tokenizeConstLine(line, /^[sS]/),
     positionMode: tokenizeConstLine,
