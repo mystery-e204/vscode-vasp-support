@@ -8,6 +8,16 @@ All notable changes to the "vasp-support" extension will be documented in this f
 
 * KPOINTS support
 
+## [0.2.2]
+
+### Fixed
+
+* POSCAR linter being inconsistent with VASP parsing
+
+### Changed
+
+* Improved POSCAR parsing and linting
+
 ## [0.2.1]
 
 ### Fixed
