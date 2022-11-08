@@ -1,5 +1,7 @@
 import * as vscode from "vscode";
-import { parsePoscar, PoscarBlockType, PoscarLine, isNumber, isInteger, isLetters } from "./poscar-parsing";
+import { isNumber, isInteger, isLetters } from "./util";
+import { parsePoscar, PoscarBlockType, PoscarLine } from "./poscar-parsing";
+import { countUntil } from "./util";
 
 export function registerPoscarLinter(languageId: string): vscode.Disposable[] {
     const disposables: vscode.Disposable[] = [];
@@ -36,7 +38,7 @@ function updateDiagnostics(document: vscode.TextDocument, collection: vscode.Dia
         const speciesNamesLine = poscarLines.find(l => l.type === "speciesNames");
         const numAtomsLine = poscarLines.find(l => l.type === "numAtoms");
         if (speciesNamesLine && numAtomsLine) {
-            if (speciesNamesLine.tokens.length !== numAtomsLine.tokens.length) {
+            if (countUntilComment(speciesNamesLine) !== countUntilComment(numAtomsLine)) {
                 diagnostics.push(createDiagnostic(
                     "Number of atoms must be specified for each atomic species.",
                     numAtomsLine.line.range,
@@ -55,27 +57,20 @@ const poscarBlockLinters: Readonly<Record<PoscarBlockType, Linter>> = {
     comment: () => [],
     scaling: poscarLine => {
         const diagnostics: vscode.Diagnostic[] = [];
+        if (isEmptyLine(poscarLine, diagnostics)) {
+            return diagnostics;
+        }
+
         const tokens = poscarLine.tokens;
-        tokens.slice(0, 3).forEach(t => {
-            if (!isNumber(t.text)) {
-                diagnostics.push(createDiagnostic(
-                    "Scaling factor must be a number.",
-                    t.range,
-                    vscode.DiagnosticSeverity.Error
-                ));
-            }
-        });
-        if (tokens.length === 0) {
-            diagnostics.push(createEmptyLineError(poscarLine.line));
-        } else if (tokens.length === 2) {
+        const numVals = countUntilComment(poscarLine, diagnostics);
+
+        if (numVals === 2 || numVals > 3) {
             diagnostics.push(createDiagnostic(
                 "The number of scaling factors must be either 1 or 3.",
-                tokens[0].range.union(tokens[1].range),
+                tokens[0].range.union(tokens[numVals - 1].range),
                 vscode.DiagnosticSeverity.Error
             ));
-        } else if (tokens.length > 3) {
-            diagnostics.push(createRemainderWarning(poscarLine.line, tokens[3].range.start));
-        } else if (tokens.length === 3) {
+        } else if (numVals === 3) {
             tokens.forEach(t => {
                 if (+t.text < 0) {
                     diagnostics.push(createDiagnostic(
@@ -97,66 +92,61 @@ const poscarBlockLinters: Readonly<Record<PoscarBlockType, Linter>> = {
             t.range,
             vscode.DiagnosticSeverity.Error
         ));
-        if (poscarLine.tokens.length === 0) {
-            diagnostics.push(createEmptyLineError(poscarLine.line));
-        }
+        isEmptyLine(poscarLine, diagnostics);
         return diagnostics;
     },
     numAtoms: poscarLine => {
-        const diagnostics = poscarLine.tokens
-        .filter(t => !isInteger(t.text) || +t.text <= 0)
-        .map(t => createDiagnostic(
-            "Number of atoms needs to be a positive integer.",
-            t.range,
-            vscode.DiagnosticSeverity.Error
-        ));
-        if (poscarLine.tokens.length === 0) {
-            diagnostics.push(createEmptyLineError(poscarLine.line));
+        const diagnostics: vscode.Diagnostic[] = [];
+        if (isEmptyLine(poscarLine, diagnostics)) {
+            return diagnostics;
         }
+        const numVals = countUntilComment(poscarLine, diagnostics);
+        poscarLine.tokens.slice(0, numVals)
+        .filter(t => !isInteger(t.text) || +t.text <= 0)
+        .forEach(t => {
+            diagnostics.push(createDiagnostic(
+                "Number of atoms needs to be a positive integer.",
+                t.range,
+                vscode.DiagnosticSeverity.Error
+            ));
+        });
         return diagnostics;
     },
     selDynamics: poscarLine => lintConstLine(poscarLine, "selective dynamics"),
     positionMode: poscarLine => lintMode(poscarLine, "direct"),
-    positions: poscarLine => {
+    positions: lintVector,
+    positionsSelDyn: poscarLine => {
+        const diagnostics = lintVector(poscarLine);
         const tokens = poscarLine.tokens;
-
-        const diagnostics = tokens.slice(0, 3)
-        .filter(t => !isNumber(t.text))
-        .map(t => createDiagnostic(
-            "Component of position vector must be a number.",
-            t.range,
-            vscode.DiagnosticSeverity.Error
-        ));
-
-        diagnostics.push(...tokens.slice(3, 6)
-            .filter(t => t.text !== "T" && t.text !== "F")
-            .map(t => createDiagnostic(
+        tokens.slice(3, 6)
+        .filter(t => t.text !== "T" && t.text !== "F")
+        .forEach(t => {
+            diagnostics.push(createDiagnostic(
                 "Selective dynamics flag must be either 'T' or 'F'.",
                 t.range,
                 vscode.DiagnosticSeverity.Error
-            ))
-        );
-
-        if (tokens.length === 0) {
-            diagnostics.push(createEmptyLineError(poscarLine.line));
-        } else if (tokens.length < 3) {
+            ));
+        });
+        if (tokens.length <= 3) {
             diagnostics.push(createDiagnostic(
-                "Each position vector must consist of 3 numbers. Too few given.",
-                tokens[0].range.union(tokens[tokens.length - 1].range),
+                "There must be 3 selective-dynamics flags. Too few given.",
+                new vscode.Range(poscarLine.line.range.end, poscarLine.line.range.end),
                 vscode.DiagnosticSeverity.Error
             ));
-        } else if (tokens.length > 6) {
-            diagnostics.push(createRemainderWarning(poscarLine.line, tokens[6].range.start));
+        } else if (tokens.length < 6) {
+            diagnostics.push(createDiagnostic(
+                "There must be 3 selective-dynamics flags. Too few given.",
+                tokens[3].range.union(tokens[tokens.length - 1].range),
+                vscode.DiagnosticSeverity.Error
+            ));
         }
         return diagnostics;
     },
     lattVelocitiesStart: poscarLine => lintConstLine(poscarLine, "Lattice velocities and vectors"),
-    lattVelocitiecState: poscarLine => {
+    lattVelocitiesState: poscarLine => {
         const tokens = poscarLine.tokens;
         const diagnostics: vscode.Diagnostic[] = [];
-        if (tokens.length === 0) {
-            diagnostics.push(createEmptyLineError(poscarLine.line));
-        } else if (!isInteger(tokens[0].text)) {
+        if (!isEmptyLine(poscarLine, diagnostics) && !isInteger(tokens[0].text)) {
             diagnostics.push(createDiagnostic(
                 "Initialization state needs to be an integer",
                 tokens[0].range,
@@ -180,21 +170,41 @@ function createDiagnostic(message: string, range: vscode.Range, severity: vscode
     };
 }
 
-function createEmptyLineError(line: vscode.TextLine): vscode.Diagnostic {
-    return createDiagnostic("Line must not be empty.", line.rangeIncludingLineBreak, vscode.DiagnosticSeverity.Error);
+function isEmptyLine(poscarLine: PoscarLine, diagnostics?: vscode.Diagnostic[]): boolean {
+    if (poscarLine.tokens.length === 0) {
+        diagnostics?.push(createDiagnostic(
+            "Line must not be empty.",
+            poscarLine.line.rangeIncludingLineBreak,
+            vscode.DiagnosticSeverity.Error
+        ));
+        return true;
+    }
+    return false;
 }
 
-function createRemainderWarning(line: vscode.TextLine, start: vscode.Position) {
-    return createDiagnostic(
-        "The remainder of this line is ignored by VASP. Consider removing it.",
-        line.range.with(start),
-        vscode.DiagnosticSeverity.Warning
-    );
+function countUntilComment(poscarLine: PoscarLine, diagnostics?: vscode.Diagnostic[]): number {
+    const tokens = poscarLine.tokens;
+    const numVals = countUntil(tokens, t => t.type === "comment");
+    if (diagnostics && numVals < tokens.length && !/^[#!]/.test(tokens[numVals].text)) {
+        diagnostics.push(createDiagnostic(
+            "The remainder of this line is ignored by VASP. " +
+            "Consider placing a '#' or '!' in front to make the intention clearer.",
+            poscarLine.line.range.with(tokens[numVals].range.start),
+            vscode.DiagnosticSeverity.Warning
+        ));
+    }
+    return numVals;
 }
 
 function lintVector(poscarLine: PoscarLine): vscode.Diagnostic[] {
     const diagnostics: vscode.Diagnostic[] = [];
+    if (isEmptyLine(poscarLine, diagnostics)) {
+        return diagnostics;
+    }
+
     const tokens = poscarLine.tokens;
+    countUntilComment(poscarLine, diagnostics);
+
     tokens.slice(0, 3).forEach(t => {
         if (!isNumber(t.text)) {
             diagnostics.push(createDiagnostic(
@@ -204,42 +214,38 @@ function lintVector(poscarLine: PoscarLine): vscode.Diagnostic[] {
             ));
         }
     });
-    if (tokens.length === 0) {
-        diagnostics.push(createEmptyLineError(poscarLine.line));
-    } else if (tokens.length < 3) {
+    if (tokens.length < 3) {
         diagnostics.push(createDiagnostic(
             "Vector must consist of 3 numbers. Too few given.",
             tokens[0].range.union(tokens[tokens.length - 1].range),
             vscode.DiagnosticSeverity.Error
         ));
-    } else if (tokens.length > 3) {
-        diagnostics.push(createRemainderWarning(poscarLine.line, tokens[3].range.start));
     }
     return diagnostics;
 }
 
 function lintConstLine(poscarLine: PoscarLine, content: string): vscode.Diagnostic[] {
     const diagnostics: vscode.Diagnostic[] = [];
-    if (poscarLine.tokens.length === 0) {
-        diagnostics.push(createEmptyLineError(poscarLine.line));
-    } else {
-        const token = poscarLine.tokens[0];
-        const startLower = content[0].toLowerCase();
-        const startUpper = startLower.toUpperCase();
-        const regex = new RegExp(`^[${startLower}${startUpper}]`);
-        if (!regex.test(token.text)) {
-            diagnostics.push(createDiagnostic(
-                `First non-space character on line must be '${startLower}' or '${startUpper}'.`,
-                token.range,
-                vscode.DiagnosticSeverity.Error
-            ));
-        } else if (!content.startsWith(token.text.toLowerCase())) {
-            diagnostics.push(createDiagnostic(
-                `Consider specifying '${content}' to avoid potential mistakes.`,
-                token.range,
-                vscode.DiagnosticSeverity.Warning
-            ));
-        }
+    if (isEmptyLine(poscarLine, diagnostics)) {
+        return diagnostics;
+    }
+
+    const token = poscarLine.tokens[0];
+    const startLower = content[0].toLowerCase();
+    const startUpper = startLower.toUpperCase();
+    const regex = new RegExp(`^[${startLower}${startUpper}]`);
+    if (!regex.test(token.text)) {
+        diagnostics.push(createDiagnostic(
+            `First non-space character on line must be '${startLower}' or '${startUpper}'.`,
+            token.range,
+            vscode.DiagnosticSeverity.Error
+        ));
+    } else if (!content.startsWith(token.text.toLowerCase())) {
+        diagnostics.push(createDiagnostic(
+            `Consider specifying '${content}' to avoid potential mistakes.`,
+            token.range,
+            vscode.DiagnosticSeverity.Warning
+        ));
     }
     return diagnostics;
 }
