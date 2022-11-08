@@ -8,6 +8,12 @@ All notable changes to the "vasp-support" extension will be documented in this f
 
 * KPOINTS support
 
+## [0.2.3]
+
+### Fixed
+
+* POSCAR code lenses broken
+
 ## [0.2.2]
 
 ### Fixed
