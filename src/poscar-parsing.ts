@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { countUntil, isNumber, isInteger, isLetters } from "./util";
-import { Token, TokenTypeSetter, DocumentParser, ParsedLine } from "./tokens";
+import { Token, TokenTypeSetter, DocumentParser, ParsedLine } from "./parsing-base";
 
 export type PoscarBlockType = 
     "comment" |
