@@ -1,15 +1,6 @@
 import * as vscode from "vscode";
 import { countUntil, isNumber, isInteger, isLetters } from "./util";
-
-export const tokenTypes = [
-    "comment",
-    "string",
-    "number",
-    "constant",
-    "invalid"
-] as const;
-
-type TokenType = (typeof tokenTypes)[number];
+import { Token, TokenTypeSetter, DocumentParser, ParsedLine } from "./tokens";
 
 export type PoscarBlockType = 
     "comment" |
@@ -29,62 +20,44 @@ export type PoscarBlockType =
     "velocities";
     // "mdExtra";
 
-export interface PoscarLine {
+export interface PoscarLine extends ParsedLine {
     type: PoscarBlockType;
-    tokens: Token[];
-    line: vscode.TextLine;
 }
 
-interface Token {
-    type?: TokenType;
-    range: vscode.Range;
-    text: string;
-}
-
-type Tokenizer = (line: vscode.TextLine) => Token[];
-
-const tokenizers: Readonly<Record<PoscarBlockType, Tokenizer>> = {
-    comment: line => {
-        return tokenizeLine(line).map(t => {
-            t.type = "comment";
-            return t;
-        });
+const tokenSetters: Readonly<Record<PoscarBlockType, TokenTypeSetter>> = {
+    comment: tokens => {
+        tokens.forEach(t => t.type = "comment");
     },
-    scaling: line => {
-        const tokens = tokenizeLine(line);
+    scaling: tokens => {
         const numVals = countUntil(tokens, t => !isNumber(t.text));
 
         if (numVals === 3) {
-            tokens.slice(0, 3).forEach(t => t.type = +t.text > 0 ? "number" : "invalid");
+            tokens.slice(0, 3).forEach(t => {
+                t.type = +t.text > 0 ? "number" : "invalid";
+            });
         } else {
             tokens.slice(0, numVals).forEach((t, tIdx) => {
                 t.type = tIdx < 3 ? "number" : "invalid";
             });
         }
         tokens.slice(numVals).forEach(t => t.type = "comment");
-
-        return tokens;
     },
-    lattice: tokenizeVector,
-    speciesNames: line => {
-        return tokenizeLine(line).map(t => {
+    lattice: setVectorTokens,
+    speciesNames: tokens => {
+        tokens.forEach(t => {
             t.type = isLetters(t.text) ? "string" : "invalid";
-            return t;
         });
     },
-    numAtoms: line => {
-        const tokens = tokenizeLine(line);
+    numAtoms: tokens => {
         const numVals = countUntil(tokens, t => !isInteger(t.text));
-
         tokens.slice(0, numVals).forEach(t => t.type = "number");
         tokens.slice(numVals).forEach(t => t.type = "comment");
-        return tokens;
     },
-    selDynamics: line => tokenizeConstLine(line, /^[sS]/),
-    positionMode: tokenizeConstLine,
-    positions: tokenizeVector,
-    positionsSelDyn: line => {
-        return tokenizeLine(line).map((t, tIdx) => {
+    selDynamics: tokens => setConstLineTokens(tokens, /^[sS]/),
+    positionMode: setConstLineTokens,
+    positions: setVectorTokens,
+    positionsSelDyn: tokens => {
+        tokens.forEach((t, tIdx) => {
             if (tIdx < 3) {
                 t.type = isNumber(t.text) ? "number" : "invalid";
             } else if (tIdx < 6) {
@@ -92,12 +65,10 @@ const tokenizers: Readonly<Record<PoscarBlockType, Tokenizer>> = {
             } else {
                 t.type = "comment";
             }
-            return t;
         });
     },
-    lattVelocitiesStart: line => tokenizeConstLine(line, /^[lL]/),
-    lattVelocitiesState: line => {
-        const tokens = tokenizeLine(line);
+    lattVelocitiesStart: tokens => setConstLineTokens(tokens, /^[lL]/),
+    lattVelocitiesState: tokens => {
         tokens.forEach((t, tIdx) => {
             if (tIdx > 0) {
                 t.type = "comment";
@@ -107,16 +78,15 @@ const tokenizers: Readonly<Record<PoscarBlockType, Tokenizer>> = {
                 t.type = "invalid";
             }
         });
-        return tokens;
     },
-    lattVelocitiesVels: tokenizeVector,
-    lattVelocitiesLatt: tokenizeVector,
-    velocityMode: tokenizeConstLine,
-    velocities: tokenizeVector
+    lattVelocitiesVels: setVectorTokens,
+    lattVelocitiesLatt: setVectorTokens,
+    velocityMode: setConstLineTokens,
+    velocities: setVectorTokens
 };
 
-function tokenizeVector(line: vscode.TextLine): Token[] {
-    return tokenizeLine(line).map((t, tIdx) => {
+function setVectorTokens(tokens: Token[]) {
+    tokens.forEach((t, tIdx) => {
         if (tIdx < 3 && isNumber(t.text)) {
             t.type = "number";
         } else if (tIdx >= 3) {
@@ -124,12 +94,10 @@ function tokenizeVector(line: vscode.TextLine): Token[] {
         } else {
             t.type = "invalid";
         }
-        return t;
     });
 }
 
-function tokenizeConstLine(line: vscode.TextLine, test?: RegExp): Token[] {
-    const tokens = tokenizeLine(line);
+function setConstLineTokens(tokens: Token[], test?: RegExp) {
     if (tokens.length > 0) {
         if (test && !test.test(tokens[0].text)) {
             tokens.forEach(t => t.type = "invalid");
@@ -141,27 +109,6 @@ function tokenizeConstLine(line: vscode.TextLine, test?: RegExp): Token[] {
             }   
         }
     }
-    return tokens;
-}
-
-function tokenizeLine(line: vscode.TextLine): Token[] {
-    const matcher = /^(\s*)(\S+)(.*)$/;
-    const tokens: Token[] = [];
-    let offset = 0;
-    let matches = line.text.match(matcher);
-
-    while (matches) {
-        tokens.push({
-            range: new vscode.Range(
-                line.lineNumber, offset += matches[1].length,
-                line.lineNumber, offset += matches[2].length
-            ),
-            text: matches[2]
-        });
-        matches = matches[3].match(matcher);
-    }
-
-    return tokens;
 }
 
 function getNumAtoms(tokens: Token[]): number {
@@ -178,28 +125,22 @@ function getNumAtoms(tokens: Token[]): number {
 
 export function parsePoscar(document: vscode.TextDocument): PoscarLine[] {
     const poscarLines: PoscarLine[] = [];
-    let nextLineIdx = 0;
+    const tokenizer = new DocumentParser(document);
 
     function processLine(type: PoscarBlockType, repeat?: number, optionalTest?: (tokens: Token[]) => boolean): boolean {
         const myRepeat = repeat ? repeat : 1;
         let isOk = true;
         for (let iter = 0; iter < myRepeat; ++iter) {
-            if (document.lineCount > nextLineIdx) {
-                const line = document.lineAt(nextLineIdx++);
-                const tokens = tokenizers[type](line);
-                if (optionalTest && !optionalTest(tokens)) {
-                    --nextLineIdx;
-                    isOk = false;
-                } else {
-                    poscarLines.push({
-                        type: type,
-                        tokens: tokens,
-                        line: line
-                    });
-                    isOk &&= true;
-                }
+            const parsedLine = tokenizer.tokenizeNextLine(tokenSetters[type], optionalTest);
+            if (parsedLine && parsedLine.tokens.length > 0) {
+                poscarLines.push({
+                    type: type,
+                    tokens: parsedLine.tokens,
+                    line: parsedLine.line
+                });
+            } else {
+                isOk = false;
             }
-            isOk &&= true;
         }
         return isOk;
     }
