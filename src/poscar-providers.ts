@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { tokenTypes } from "./tokens";
+import { tokenTypes } from "./parsing-base";
 import { PoscarBlockType, parsePoscar } from "./poscar-parsing";
 
 const tokensLegend = new vscode.SemanticTokensLegend(tokenTypes.slice());
