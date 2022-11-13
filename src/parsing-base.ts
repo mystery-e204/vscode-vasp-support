@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { isNumber } from "./util";
 
 const matcher = /^(\s*)(\S+)(.*)$/;
 
@@ -32,7 +33,7 @@ export class DocumentParser {
         this.document = document;
     }
 
-    public tokenizeNextLine(tokenSetter: TokenTypeSetter, optionalTest?: (tokens: Token[]) => boolean): ParsedLine | null {
+    public parseNextLine(tokenSetter: TokenTypeSetter, optionalTest?: (tokens: Token[]) => boolean): ParsedLine | null {
         if (this.nextLineIdx >= this.document.lineCount) {
             return null;
         }
@@ -67,4 +68,30 @@ function splitLineToTokens(line: vscode.TextLine): Token[] {
     }
 
     return tokens;
+}
+
+export function setVectorTokens(tokens: Token[]) {
+    tokens.forEach((t, tIdx) => {
+        if (tIdx < 3 && isNumber(t.text)) {
+            t.type = "number";
+        } else if (tIdx >= 3) {
+            t.type = "comment";
+        } else {
+            t.type = "invalid";
+        }
+    });
+}
+
+export function setConstLineTokens(tokens: Token[], test?: RegExp) {
+    if (tokens.length > 0) {
+        if (test && !test.test(tokens[0].text)) {
+            tokens.forEach(t => t.type = "invalid");
+        } else {
+            let foundComment = false;
+            for (let t of tokens) {
+                foundComment ||= /^[#!%]/.test(t.text);
+                t.type = foundComment ? "comment" : "constant";
+            }   
+        }
+    }
 }
