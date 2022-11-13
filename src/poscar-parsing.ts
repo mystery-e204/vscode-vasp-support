@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { countUntil, isNumber, isInteger, isLetters } from "./util";
-import { Token, TokenTypeSetter, DocumentParser, ParsedLine } from "./parsing-base";
+import { Token, TokenTypeSetter, DocumentParser, ParsedLine, setVectorTokens, setConstLineTokens } from "./parsing-base";
 
 export type PoscarBlockType = 
     "comment" |
@@ -85,32 +85,6 @@ const tokenSetters: Readonly<Record<PoscarBlockType, TokenTypeSetter>> = {
     velocities: setVectorTokens
 };
 
-function setVectorTokens(tokens: Token[]) {
-    tokens.forEach((t, tIdx) => {
-        if (tIdx < 3 && isNumber(t.text)) {
-            t.type = "number";
-        } else if (tIdx >= 3) {
-            t.type = "comment";
-        } else {
-            t.type = "invalid";
-        }
-    });
-}
-
-function setConstLineTokens(tokens: Token[], test?: RegExp) {
-    if (tokens.length > 0) {
-        if (test && !test.test(tokens[0].text)) {
-            tokens.forEach(t => t.type = "invalid");
-        } else {
-            let foundComment = false;
-            for (let t of tokens) {
-                foundComment ||= /^[#!%]/.test(t.text);
-                t.type = foundComment ? "comment" : "constant";
-            }   
-        }
-    }
-}
-
 function getNumAtoms(tokens: Token[]): number {
     let numAtoms = 0;
     for (const token of tokens) {
@@ -125,13 +99,13 @@ function getNumAtoms(tokens: Token[]): number {
 
 export function parsePoscar(document: vscode.TextDocument): PoscarLine[] {
     const poscarLines: PoscarLine[] = [];
-    const tokenizer = new DocumentParser(document);
+    const parser = new DocumentParser(document);
 
     function processLine(type: PoscarBlockType, repeat?: number, optionalTest?: (tokens: Token[]) => boolean): boolean {
         const myRepeat = repeat ? repeat : 1;
         let isOk = true;
         for (let iter = 0; iter < myRepeat; ++iter) {
-            const parsedLine = tokenizer.tokenizeNextLine(tokenSetters[type], optionalTest);
+            const parsedLine = parser.parseNextLine(tokenSetters[type], optionalTest);
             if (parsedLine && parsedLine.tokens.length > 0) {
                 poscarLines.push({
                     type: type,
