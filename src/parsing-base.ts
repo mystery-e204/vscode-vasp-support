@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { isNumber } from "./util";
+import { countUntil, isInteger, isNumber } from "./util";
 
 const matcher = /^(\s*)(\S+)(.*)$/;
 
@@ -80,6 +80,19 @@ export function setVectorTokens(tokens: Token[]) {
             t.type = "invalid";
         }
     });
+}
+
+export function setCountListTokens(tokens: Token[], amount?: number) {
+    if (amount) {
+        tokens.slice(0, amount).forEach(t =>
+            t.type = isInteger(t.text) && +t.text > 0 ? "number" : "invalid"
+        );
+        tokens.slice(amount).forEach(t => t.type = "comment");
+    } else {
+        const numVals = countUntil(tokens, t => !isInteger(t.text) || +t.text <= 0);
+        tokens.slice(0, numVals).forEach(t => t.type = "number");
+        tokens.slice(numVals).forEach(t => t.type = "comment");
+    }
 }
 
 export function setConstLineTokens(tokens: Token[], test?: RegExp) {

@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
-import { countUntil, isNumber, isInteger, isLetters } from "./util";
-import { Token, TokenTypeSetter, DocumentParser, ParsedLine, setVectorTokens, setConstLineTokens } from "./parsing-base";
+import { countUntil, isNumber, isLetters } from "./util";
+import { Token, TokenTypeSetter, DocumentParser, ParsedLine, setVectorTokens, setConstLineTokens, setCountListTokens } from "./parsing-base";
 
 export type PoscarBlockType = 
     "comment" |
@@ -48,11 +48,7 @@ const tokenSetters: Readonly<Record<PoscarBlockType, TokenTypeSetter>> = {
             t.type = isLetters(t.text) ? "string" : "invalid";
         });
     },
-    numAtoms: tokens => {
-        const numVals = countUntil(tokens, t => !isInteger(t.text));
-        tokens.slice(0, numVals).forEach(t => t.type = "number");
-        tokens.slice(numVals).forEach(t => t.type = "comment");
-    },
+    numAtoms: setCountListTokens,
     selDynamics: tokens => setConstLineTokens(tokens, /^[sS]/),
     positionMode: setConstLineTokens,
     positions: setVectorTokens,
@@ -68,17 +64,7 @@ const tokenSetters: Readonly<Record<PoscarBlockType, TokenTypeSetter>> = {
         });
     },
     lattVelocitiesStart: tokens => setConstLineTokens(tokens, /^[lL]/),
-    lattVelocitiesState: tokens => {
-        tokens.forEach((t, tIdx) => {
-            if (tIdx > 0) {
-                t.type = "comment";
-            } else if (isInteger(t.text)) {
-                t.type = "number";
-            } else {
-                t.type = "invalid";
-            }
-        });
-    },
+    lattVelocitiesState: tokens => setCountListTokens(tokens, 1),
     lattVelocitiesVels: setVectorTokens,
     lattVelocitiesLatt: setVectorTokens,
     velocityMode: setConstLineTokens,
@@ -103,20 +89,19 @@ export function parsePoscar(document: vscode.TextDocument): PoscarLine[] {
 
     function processLine(type: PoscarBlockType, repeat?: number, optionalTest?: (tokens: Token[]) => boolean): boolean {
         const myRepeat = repeat ? repeat : 1;
-        let isOk = true;
         for (let iter = 0; iter < myRepeat; ++iter) {
             const parsedLine = parser.parseNextLine(tokenSetters[type], optionalTest);
-            if (parsedLine && parsedLine.tokens.length > 0) {
+            if (!parsedLine) {
+                return false;
+            } else if (parsedLine.tokens.length > 0) {
                 poscarLines.push({
                     type: type,
                     tokens: parsedLine.tokens,
                     line: parsedLine.line
                 });
-            } else {
-                isOk = false;
             }
         }
-        return isOk;
+        return true;
     }
 
     processLine("comment");
