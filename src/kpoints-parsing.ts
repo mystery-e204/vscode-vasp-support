@@ -8,10 +8,10 @@
 //  7       ...                     shift           ...
 
 import * as vscode from "vscode";
-import { DocumentParser, ParsedLine, setConstLineTokens, setCountListTokens, setVectorTokens, TokenTypeSetter } from "./parsing-base";
+import { Tokenizer, TokenizedLine, setConstLineTokens, setCountListTokens, setVectorTokens, TokensTyper } from "./tokens";
 import { isNumber } from "./util";
 
-type KPointsMode =
+type KpointsMode =
     "explicit" |
     "regularGrid" |
     "generalizedGrid" |
@@ -19,9 +19,9 @@ type KPointsMode =
     "automatic";
 
 type ModeProcessor = (lineProcessor: LineProcessor, numKPoints: number) => void;
-type LineProcessor = (tokenSetter: TokenTypeSetter, repeat?: number) => boolean;
+type LineProcessor = (tokensTyper: TokensTyper, repeat?: number) => boolean;
 
-const modeProcessors: Readonly<Record<KPointsMode, ModeProcessor>> = {
+const modeProcessors: Readonly<Record<KpointsMode, ModeProcessor>> = {
     explicit: (lineProcessor, numKPoints) => {
         lineProcessor(setVectorTokens, numKPoints);
     },
@@ -47,8 +47,8 @@ const modeProcessors: Readonly<Record<KPointsMode, ModeProcessor>> = {
 };
 
 export function parseKpoints(document: vscode.TextDocument) {
-    const parsedLines: ParsedLine[] = [];
-    const parser = new DocumentParser(document);
+    const kpointsLines: TokenizedLine[] = [];
+    const tokenizer = new Tokenizer(document);
 
     // Parse first three lines. This is the same in every file
     // Together, line 2 and 3 dictate the format of the rest of the file
@@ -60,31 +60,31 @@ export function parseKpoints(document: vscode.TextDocument) {
         // line 3 - mode or coordinates
         processLine(setConstLineTokens)
     ) {
-        const numKPoints = +parsedLines[1]?.tokens[0];
-        const modeWord = parsedLines[2]?.tokens[0]?.text;
+        const numKPoints = +kpointsLines[1]?.tokens[0];
+        const modeWord = kpointsLines[2]?.tokens[0]?.text;
         if (numKPoints && modeWord) {
-            const mode = getKPointsMode(numKPoints, modeWord);
+            const mode = getKpointsMode(numKPoints, modeWord);
             if (mode) {
                 modeProcessors[mode](processLine, numKPoints);
             }
         }
     }
 
-    function processLine(tokenSetter: TokenTypeSetter, repeat?: number): boolean {
+    function processLine(tokenSetter: TokensTyper, repeat?: number): boolean {
         const myRepeat = repeat ? repeat : 1;
         for (let iter = 0; iter < myRepeat; ++iter) {
-            const parsedLine = parser.parseNextLine(tokenSetter);
-            if (!parsedLine) {
+            const tokenizedLine = tokenizer.tokenizeNextLine(tokenSetter);
+            if (!tokenizedLine) {
                 return false;
-            } else if (parsedLine.tokens.length > 0) {
-                parsedLines.push(parsedLine);
+            } else if (tokenizedLine.tokens.length > 0) {
+                kpointsLines.push(tokenizedLine);
             }
         }
         return true;
     }
 }
 
-function getKPointsMode(numKPoints: number, modeWord: string): KPointsMode | null {
+function getKpointsMode(numKPoints: number, modeWord: string): KpointsMode | null {
     if (numKPoints < 0) {
         return null;
     } else if (numKPoints === 0) {
