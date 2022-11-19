@@ -1,15 +1,6 @@
-//  row     explicit    regular     generalized     bandstruct  automatic
-//  1       comment     -           -               -           -
-//  2       n           0           0               n           0
-//  3       coord       mode        coord           line        auto
-//  4       k-point     subdiv      lattice         coord       length
-//  5       ...         opt shift   ...             k-point
-//  6       ...                     ...             ...
-//  7       ...                     shift           ...
-
 import * as vscode from "vscode";
-import { Tokenizer, TokenizedLine, setConstLineTokens, setCountListTokens, setVectorTokens, TokensTyper } from "./tokens";
-import { isNumber } from "./util";
+import { Tokenizer, TokenizedLine, setConstLineTokens, setCountListTokens, setVectorTokens, TokensTyper, Parser } from "./tokens";
+import { isInteger, isNumber } from "./util";
 
 type KpointsMode =
     "explicit" |
@@ -46,7 +37,7 @@ const modeProcessors: Readonly<Record<KpointsMode, ModeProcessor>> = {
     }
 };
 
-export function parseKpoints(document: vscode.TextDocument) {
+export function parseKpoints(document: vscode.TextDocument): TokenizedLine[] {
     const kpointsLines: TokenizedLine[] = [];
     const tokenizer = new Tokenizer(document);
 
@@ -56,19 +47,27 @@ export function parseKpoints(document: vscode.TextDocument) {
         // line 1 - comment
         processLine(tokens => tokens.forEach(t => t.type = "comment")) &&
         // line 2 - number of k-points (0 for automatic generation)
-        processLine(tokens => setCountListTokens(tokens, 1)) &&
+        processLine(tokens => tokens.forEach((t, tIdx) => {
+            if (tIdx === 0) {
+                t.type = isInteger(t.text) ? "number" : "invalid";
+            } else {
+                t.type = "comment";
+            }
+        })) &&
         // line 3 - mode or coordinates
         processLine(setConstLineTokens)
     ) {
-        const numKPoints = +kpointsLines[1]?.tokens[0];
+        const numKPoints = +kpointsLines[1]?.tokens[0]?.text;
         const modeWord = kpointsLines[2]?.tokens[0]?.text;
-        if (numKPoints && modeWord) {
+        if (Number.isFinite(numKPoints) && modeWord) {
             const mode = getKpointsMode(numKPoints, modeWord);
             if (mode) {
                 modeProcessors[mode](processLine, numKPoints);
             }
         }
     }
+
+    return kpointsLines;
 
     function processLine(tokenSetter: TokensTyper, repeat?: number): boolean {
         const myRepeat = repeat ? repeat : 1;
@@ -82,7 +81,7 @@ export function parseKpoints(document: vscode.TextDocument) {
         }
         return true;
     }
-}
+};
 
 function getKpointsMode(numKPoints: number, modeWord: string): KpointsMode | null {
     if (numKPoints < 0) {

@@ -5,6 +5,7 @@ import { IncarTag } from './incar-tag';
 import { fetchIncarTags } from './vasp-wiki';
 import { registerPoscarCodeLensProvider, registerPoscarSemanticTokensProvider } from './poscar-providers';
 import { registerPoscarLinter } from './poscar-linting';
+import { registerKpointsSemanticTokensProvider } from './kpoints-providers';
 
 const baseUrl = "https://www.vasp.at";
 
@@ -12,6 +13,8 @@ export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(registerPoscarSemanticTokensProvider());
 	context.subscriptions.push(registerPoscarCodeLensProvider());
 	context.subscriptions.push(...registerPoscarLinter());
+
+	context.subscriptions.push(registerKpointsSemanticTokensProvider());
 
 	const incarTagsFileUri = vscode.Uri.joinPath(context.globalStorageUri, "incar-tags.json");
 	let incarTags = await readIncarTags(incarTagsFileUri);

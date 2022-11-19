@@ -16,7 +16,8 @@
   },
   "activationEvents": [
     "onLanguage:incar",
-    "onLanguage:poscar"
+    "onLanguage:poscar",
+    "onLanguage:kpoints"
   ],
   "main": "./dist/main.js",
   "contributes": {
@@ -39,6 +40,16 @@
         "filenamePatterns": [
           "{POSCAR,CONTCAR}",
           "{POSCAR,CONTCAR}{-,_,.,[0-9]}*"
+        ]
+      },
+      {
+        "id": "kpoints",
+        "aliases": [
+          "KPOINTS"
+        ],
+        "filenamePatterns": [
+          "{K,Q}POINTS",
+          "{K,Q}POINTS{-,_,.,[0-9]}*"
         ]
       }
     ],
