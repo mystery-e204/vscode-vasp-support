@@ -24,7 +24,7 @@ export interface TokenizedLine {
     line: vscode.TextLine;
     tokens: Token[];
 }
-type Parser = (document: vscode.TextDocument) => TokenizedLine[];
+export type Parser = (document: vscode.TextDocument) => TokenizedLine[];
 
 const tokensLegend = new vscode.SemanticTokensLegend(tokenTypes.slice());
 

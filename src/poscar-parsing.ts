@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { countUntil, isNumber, isLetters } from "./util";
-import { Token, TokensTyper, Tokenizer, TokenizedLine, setVectorTokens, setConstLineTokens, setCountListTokens } from "./tokens";
+import { Token, TokensTyper, Tokenizer, TokenizedLine, setVectorTokens, setConstLineTokens, setCountListTokens, Parser } from "./tokens";
 
 export type PoscarBlockType = 
     "comment" |
@@ -87,23 +87,6 @@ export function parsePoscar(document: vscode.TextDocument): PoscarLine[] {
     const poscarLines: PoscarLine[] = [];
     const tokenizer = new Tokenizer(document);
 
-    function processLine(type: PoscarBlockType, repeat?: number, optionalTest?: (tokens: Token[]) => boolean): boolean {
-        const myRepeat = repeat ? repeat : 1;
-        for (let iter = 0; iter < myRepeat; ++iter) {
-            const tokenizedLine = tokenizer.tokenizeNextLine(tokenSetters[type], optionalTest);
-            if (!tokenizedLine) {
-                return false;
-            } else if (tokenizedLine.tokens.length > 0) {
-                poscarLines.push({
-                    type: type,
-                    tokens: tokenizedLine.tokens,
-                    line: tokenizedLine.line
-                });
-            }
-        }
-        return true;
-    }
-
     processLine("comment");
     processLine("scaling");
     processLine("lattice", 3);
@@ -126,4 +109,21 @@ export function parsePoscar(document: vscode.TextDocument): PoscarLine[] {
     processLine("velocities", numAtoms);
 
     return poscarLines;
-}
+
+    function processLine(type: PoscarBlockType, repeat?: number, optionalTest?: (tokens: Token[]) => boolean): boolean {
+        const myRepeat = repeat ? repeat : 1;
+        for (let iter = 0; iter < myRepeat; ++iter) {
+            const tokenizedLine = tokenizer.tokenizeNextLine(tokenSetters[type], optionalTest);
+            if (!tokenizedLine) {
+                return false;
+            } else if (tokenizedLine.tokens.length > 0) {
+                poscarLines.push({
+                    type: type,
+                    tokens: tokenizedLine.tokens,
+                    line: tokenizedLine.line
+                });
+            }
+        }
+        return true;
+    }
+};
