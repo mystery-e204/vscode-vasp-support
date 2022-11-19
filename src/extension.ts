@@ -9,9 +9,9 @@ import { registerPoscarLinter } from './poscar-linting';
 const baseUrl = "https://www.vasp.at";
 
 export async function activate(context: vscode.ExtensionContext) {
-	context.subscriptions.push(registerPoscarSemanticTokensProvider("poscar"));
-	context.subscriptions.push(registerPoscarCodeLensProvider("poscar"));
-	context.subscriptions.push(...registerPoscarLinter("poscar"));
+	context.subscriptions.push(registerPoscarSemanticTokensProvider());
+	context.subscriptions.push(registerPoscarCodeLensProvider());
+	context.subscriptions.push(...registerPoscarLinter());
 
 	const incarTagsFileUri = vscode.Uri.joinPath(context.globalStorageUri, "incar-tags.json");
 	let incarTags = await readIncarTags(incarTagsFileUri);

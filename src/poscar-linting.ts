@@ -3,10 +3,10 @@ import { isNumber, isInteger, isLetters } from "./util";
 import { parsePoscar, PoscarBlockType, PoscarLine } from "./poscar-parsing";
 import { countUntil } from "./util";
 
-export function registerPoscarLinter(languageId: string): vscode.Disposable[] {
+export function registerPoscarLinter(): vscode.Disposable[] {
     const disposables: vscode.Disposable[] = [];
 
-	const collection = vscode.languages.createDiagnosticCollection(languageId);
+	const collection = vscode.languages.createDiagnosticCollection("poscar");
 	if (vscode.window.activeTextEditor) {
 		updateDiagnostics(vscode.window.activeTextEditor.document, collection);
 	}

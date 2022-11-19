@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { countUntil, isNumber, isLetters } from "./util";
-import { Token, TokenTypeSetter, DocumentParser, ParsedLine, setVectorTokens, setConstLineTokens, setCountListTokens } from "./parsing-base";
+import { Token, TokensTyper, Tokenizer, TokenizedLine, setVectorTokens, setConstLineTokens, setCountListTokens } from "./tokens";
 
 export type PoscarBlockType = 
     "comment" |
@@ -20,11 +20,11 @@ export type PoscarBlockType =
     "velocities";
     // "mdExtra";
 
-export interface PoscarLine extends ParsedLine {
+export interface PoscarLine extends TokenizedLine {
     type: PoscarBlockType;
 }
 
-const tokenSetters: Readonly<Record<PoscarBlockType, TokenTypeSetter>> = {
+const tokenSetters: Readonly<Record<PoscarBlockType, TokensTyper>> = {
     comment: tokens => {
         tokens.forEach(t => t.type = "comment");
     },
@@ -85,19 +85,19 @@ function getNumAtoms(tokens: Token[]): number {
 
 export function parsePoscar(document: vscode.TextDocument): PoscarLine[] {
     const poscarLines: PoscarLine[] = [];
-    const parser = new DocumentParser(document);
+    const tokenizer = new Tokenizer(document);
 
     function processLine(type: PoscarBlockType, repeat?: number, optionalTest?: (tokens: Token[]) => boolean): boolean {
         const myRepeat = repeat ? repeat : 1;
         for (let iter = 0; iter < myRepeat; ++iter) {
-            const parsedLine = parser.parseNextLine(tokenSetters[type], optionalTest);
-            if (!parsedLine) {
+            const tokenizedLine = tokenizer.tokenizeNextLine(tokenSetters[type], optionalTest);
+            if (!tokenizedLine) {
                 return false;
-            } else if (parsedLine.tokens.length > 0) {
+            } else if (tokenizedLine.tokens.length > 0) {
                 poscarLines.push({
                     type: type,
-                    tokens: parsedLine.tokens,
-                    line: parsedLine.line
+                    tokens: tokenizedLine.tokens,
+                    line: tokenizedLine.line
                 });
             }
         }

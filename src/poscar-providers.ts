@@ -1,8 +1,6 @@
 import * as vscode from "vscode";
-import { tokenTypes } from "./parsing-base";
 import { PoscarBlockType, parsePoscar } from "./poscar-parsing";
-
-const tokensLegend = new vscode.SemanticTokensLegend(tokenTypes.slice());
+import { registerVaspSemanticTokensProvider } from "./tokens";
 
 const poscarBlockTitles: Readonly<Record<PoscarBlockType, string>> = {
     comment: "Comment",
@@ -22,24 +20,11 @@ const poscarBlockTitles: Readonly<Record<PoscarBlockType, string>> = {
     velocities: "Atom velocities"
 };
 
-export function registerPoscarSemanticTokensProvider(selector: vscode.DocumentSelector): vscode.Disposable {
-    return vscode.languages.registerDocumentSemanticTokensProvider(selector, {
-		provideDocumentSemanticTokens(document, cancel) {
-			const builder = new vscode.SemanticTokensBuilder(tokensLegend);
-			const poscarLines = parsePoscar(document);
-			poscarLines.forEach(poscarLine => {
-				poscarLine.tokens.forEach(token => {
-					if (token.type) {
-						builder.push(token.range, token.type);
-					}
-				});
-			});
-			return builder.build();
-		}
-	}, tokensLegend);
+export function registerPoscarSemanticTokensProvider(): vscode.Disposable {
+    return registerVaspSemanticTokensProvider("poscar", parsePoscar);
 }
 
-export function registerPoscarCodeLensProvider(selector: vscode.DocumentSelector): vscode.Disposable {
+export function registerPoscarCodeLensProvider(): vscode.Disposable {
     return vscode.languages.registerCodeLensProvider("poscar", {
         provideCodeLenses(document, cancel): vscode.CodeLens[] {
             const codeLenses: vscode.CodeLens[] = [];

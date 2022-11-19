@@ -9,7 +9,7 @@ export interface Token {
     text: string;
 }
 
-export const tokenTypes = [
+const tokenTypes = [
     "comment",
     "string",
     "number",
@@ -17,15 +17,35 @@ export const tokenTypes = [
     "invalid"
 ] as const;
 
-export interface ParsedLine {
+export type TokenType = (typeof tokenTypes)[number];
+export type TokensTyper = (tokens: Token[]) => void;
+
+export interface TokenizedLine {
     line: vscode.TextLine;
     tokens: Token[];
 }
+type Parser = (document: vscode.TextDocument) => TokenizedLine[];
 
-export type TokenType = (typeof tokenTypes)[number];
-export type TokenTypeSetter = (tokens: Token[]) => void;
+const tokensLegend = new vscode.SemanticTokensLegend(tokenTypes.slice());
 
-export class DocumentParser {
+export function registerVaspSemanticTokensProvider(selector: vscode.DocumentSelector, parser: Parser): vscode.Disposable {
+    return vscode.languages.registerDocumentSemanticTokensProvider(selector, {
+		provideDocumentSemanticTokens(document, cancel) {
+			const builder = new vscode.SemanticTokensBuilder(tokensLegend);
+			const tokenizedLines = parser(document);
+			tokenizedLines.forEach(tokenizedLine => {
+				tokenizedLine.tokens.forEach(token => {
+					if (token.type) {
+						builder.push(token.range, token.type);
+					}
+				});
+			});
+			return builder.build();
+		}
+	}, tokensLegend);
+}
+
+export class Tokenizer {
     private nextLineIdx = 0;
     private document: vscode.TextDocument;
 
@@ -33,13 +53,13 @@ export class DocumentParser {
         this.document = document;
     }
 
-    public parseNextLine(tokenSetter: TokenTypeSetter, optionalTest?: (tokens: Token[]) => boolean): ParsedLine | null {
+    public tokenizeNextLine(tokensTyper: TokensTyper, optionalTest?: (tokens: Token[]) => boolean): TokenizedLine | null {
         if (this.nextLineIdx >= this.document.lineCount) {
             return null;
         }
         const line = this.document.lineAt(this.nextLineIdx++);
         const tokens = splitLineToTokens(line);
-        tokenSetter(tokens);
+        tokensTyper(tokens);
         if (optionalTest && !optionalTest(tokens)) {
             --this.nextLineIdx;
             return null;
