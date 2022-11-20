@@ -14,7 +14,12 @@ type LineProcessor = (tokensTyper: TokensTyper, repeat?: number) => boolean;
 
 const modeProcessors: Readonly<Record<KpointsMode, ModeProcessor>> = {
     explicit: (lineProcessor, numKPoints) => {
-        lineProcessor(setVectorTokens, numKPoints);
+        lineProcessor(tokens => {
+            setVectorTokens(tokens);
+            if (tokens.length > 3) {
+                tokens[3].type = isNumber(tokens[3].text) && +tokens[3].text >= 0 ? "number" : "invalid";
+            }
+        }, numKPoints);
     },
     regularGrid: (lineProcessor, _) => {
         lineProcessor(tokens => setCountListTokens(tokens, 3));
