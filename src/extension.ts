@@ -34,7 +34,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 async function writeIncarTags(uri: vscode.Uri, incarTags: IncarTag[]) {
 	const buffer = Buffer.from(JSON.stringify(incarTags));
-	await vscode.workspace.fs.writeFile(uri, buffer);
+	await vscode.workspace.fs.writeFile(uri, Uint8Array.from(buffer));
 }
 
 async function readIncarTags(uri: vscode.Uri): Promise<IncarTag[]> {
