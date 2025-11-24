@@ -1,4 +1,4 @@
-import { mwn } from 'mwn';
+import { Mwn } from 'mwn';
 import * as cheerio from 'cheerio';
 import { MathConverter } from './math-converter';
 import { HtmlToMarkdownConverter } from './html-to-markdown';
@@ -9,7 +9,7 @@ interface WikiPage {
 	body: string
 }
 
-async function fetchIncarTagPageIDs(bot: mwn): Promise<number[]> {
+async function fetchIncarTagPageIDs(bot: Mwn): Promise<number[]> {
     const pageIds: number[] = [];
 
     for await (let response of bot.continuedQueryGen({
@@ -33,7 +33,7 @@ async function fetchIncarTagPageIDs(bot: mwn): Promise<number[]> {
     return pageIds;
 }
 
-async function fetchIncarTagWikiPages(bot: mwn, pageIds: number[]): Promise<WikiPage[]> {
+async function fetchIncarTagWikiPages(bot: Mwn, pageIds: number[]): Promise<WikiPage[]> {
     const wikiPages: WikiPage[] = [];
 
     for await (let response of bot.massQueryGen({
@@ -65,7 +65,7 @@ async function fetchIncarTagWikiPages(bot: mwn, pageIds: number[]): Promise<Wiki
     return wikiPages;
 }
 
-async function parseIncarTags(bot: mwn, wikiPages: WikiPage[]): Promise<Map<string, string>> {
+async function parseIncarTags(bot: Mwn, wikiPages: WikiPage[]): Promise<Map<string, string>> {
     const combinedText = wikiPages.map(info => `<div class="incarTag" title="${info.title}">\n${info.body}\n</div>`).join("");
     const tmp = await bot.parseWikitext(combinedText);
     const $ = cheerio.load(tmp);
@@ -83,7 +83,7 @@ async function parseIncarTags(bot: mwn, wikiPages: WikiPage[]): Promise<Map<stri
 }
 
 export async function fetchIncarTags(baseUrl: string): Promise<IncarTag[]> {
-    const bot = new mwn({ apiUrl: `${baseUrl}/wiki/api.php` });
+    const bot = new Mwn({ apiUrl: `${baseUrl}/wiki/api.php` });
     const mathConverter = new MathConverter();
 	const htmlToMarkdownConverter = new HtmlToMarkdownConverter(mathConverter);
 

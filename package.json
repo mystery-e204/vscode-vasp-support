@@ -5,7 +5,7 @@
   "version": "0.2.3",
   "publisher": "Mystery",
   "engines": {
-    "vscode": "^1.69.0"
+    "vscode": "^1.85.0"
   },
   "categories": [
     "Programming Languages"
@@ -71,7 +71,7 @@
         }
       }
     ],
-    "configuration":{
+    "configuration": {
       "title": "VASP Support",
       "properties": {
         "vasp-support.poscar.codeLenses.enabled": {
@@ -94,7 +94,7 @@
     "esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "lint": "eslint src --ext ts",
+    "lint": "eslint src",
     "postinstall": "patch-package"
   },
   "devDependencies": {
@@ -103,22 +103,21 @@
     "@types/mocha": "^9.1.1",
     "@types/node": "16.x",
     "@types/turndown": "^5.0.1",
-    "@types/vscode": "^1.69.0",
-    "@typescript-eslint/eslint-plugin": "^5.30.0",
-    "@typescript-eslint/parser": "^5.30.0",
+    "@types/vscode": "^1.106.1",
     "@vscode/test-electron": "^2.1.5",
-    "esbuild": "^0.15.10",
-    "eslint": "^8.18.0",
+    "esbuild": "^0.27.0",
+    "eslint": "^9.39.1",
     "glob": "^8.0.3",
     "mocha": "^10.0.0",
-    "patch-package": "^6.4.7",
-    "typescript": "^4.7.4"
+    "patch-package": "^8.0.1",
+    "typescript": "^4.9.5",
+    "typescript-eslint": "^8.48.0"
   },
   "dependencies": {
     "@joplin/turndown-plugin-gfm": "^1.0.44",
     "cheerio": "^1.0.0-rc.12",
     "mathjax-full": "^3.2.2",
-    "mwn": "^1.11.4",
+    "mwn": "^3.0.1",
     "turndown": "^7.1.1"
   }
 }
