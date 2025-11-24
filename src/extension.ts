@@ -9,27 +9,51 @@ import { registerPoscarLinter } from './poscar-linting';
 const baseUrl = "https://www.vasp.at";
 
 export async function activate(context: vscode.ExtensionContext) {
-	context.subscriptions.push(registerPoscarSemanticTokensProvider("poscar"));
-	context.subscriptions.push(registerPoscarCodeLensProvider("poscar"));
-	context.subscriptions.push(...registerPoscarLinter("poscar"));
+	try {
+		context.subscriptions.push(registerPoscarSemanticTokensProvider("poscar"));
+		context.subscriptions.push(registerPoscarCodeLensProvider("poscar"));
+		context.subscriptions.push(...registerPoscarLinter("poscar"));
 
-	const incarTagsFileUri = vscode.Uri.joinPath(context.globalStorageUri, "incar-tags.json");
-	let incarTags = await readIncarTags(incarTagsFileUri);
-	let incarHovers = new Map(incarTags.map(t => [t.name, t.getHoverText(baseUrl)]));
+		const incarTagsFileUri = vscode.Uri.joinPath(context.globalStorageUri, "incar-tags.json");
+		let incarTags = await readIncarTags(incarTagsFileUri);
+		let incarHovers = new Map(incarTags.map(t => [t.name, t.getHoverText(baseUrl)]));
 
-	vscode.languages.registerHoverProvider("incar", {
-		provideHover(document, position, cancel) {
-			const range = document.getWordRangeAtPosition(position);
-			const word = document.getText(range).toUpperCase();
+		const hoverProvider = vscode.languages.registerHoverProvider("incar", {
+			provideHover(document, position, cancel) {
+				const range = document.getWordRangeAtPosition(position);
+				const word = document.getText(range).toUpperCase();
 
-			const markdown = incarHovers.get(word);
-			return markdown ? new vscode.Hover(markdown) : null;
-		}
-	});
+				const markdown = incarHovers.get(word);
+				return markdown ? new vscode.Hover(markdown) : null;
+			}
+		});
+		context.subscriptions.push(hoverProvider);
 
-	incarTags = await fetchIncarTags(baseUrl);
-	incarHovers = new Map(incarTags.map(t => [t.name, t.getHoverText(baseUrl)]));
-	writeIncarTags(incarTagsFileUri, incarTags);
+		// Fetch updated tags in the background without blocking activation
+		fetchIncarTags(baseUrl)
+			.then(updatedTags => {
+				incarTags = updatedTags;
+				incarHovers = new Map(incarTags.map(t => [t.name, t.getHoverText(baseUrl)]));
+				return writeIncarTags(incarTagsFileUri, incarTags);
+			})
+			.catch(error => {
+				console.error('Failed to fetch INCAR tags from VASP wiki:', error);
+				vscode.window.showWarningMessage(
+					'VASP Support: Could not fetch latest INCAR documentation. Using cached data.',
+					'Retry'
+				).then(selection => {
+					if (selection === 'Retry') {
+						vscode.commands.executeCommand('workbench.action.reloadWindow');
+					}
+				});
+			});
+	} catch (error) {
+		console.error('Failed to activate VASP Support extension:', error);
+		vscode.window.showErrorMessage(
+			`VASP Support: Extension activation failed. ${error instanceof Error ? error.message : 'Unknown error'}`
+		);
+		throw error;
+	}
 }
 
 async function writeIncarTags(uri: vscode.Uri, incarTags: IncarTag[]) {
