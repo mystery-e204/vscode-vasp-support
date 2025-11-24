@@ -57,20 +57,29 @@ export async function activate(context: vscode.ExtensionContext) {
 }
 
 async function writeIncarTags(uri: vscode.Uri, incarTags: IncarTag[]) {
-	const buffer = Buffer.from(JSON.stringify(incarTags));
-	await vscode.workspace.fs.writeFile(uri, Uint8Array.from(buffer));
+	try {
+		// Ensure the directory exists
+		const dirUri = vscode.Uri.joinPath(uri, '..');
+		await vscode.workspace.fs.createDirectory(dirUri);
+		
+		const buffer = Buffer.from(JSON.stringify(incarTags));
+		await vscode.workspace.fs.writeFile(uri, Uint8Array.from(buffer));
+	} catch (error) {
+		console.error('Failed to write INCAR tags to cache:', error);
+		// Non-fatal: extension continues to work with current in-memory data
+	}
 }
 
 async function readIncarTags(uri: vscode.Uri): Promise<IncarTag[]> {
-    const buffer = await vscode.workspace.fs.readFile(uri).then(
-		res => res,
-		() => null
-	);
-	if (buffer) {
+	try {
+		const buffer = await vscode.workspace.fs.readFile(uri);
 		const objList: Record<string, string>[] = JSON.parse(buffer.toString());
 		return objList.map(obj => IncarTag.fromObject(obj));
+	} catch (error) {
+		// File doesn't exist or is corrupted - return empty array
+		// This is expected on first run
+		return [];
 	}
-	return [];
 }
 
 export function deactivate() {}
