@@ -20,7 +20,7 @@ export function registerPoscarLinter(languageId: string): vscode.Disposable[] {
 			updateDiagnostics(event.document, collection);
 		}
 	}));
-	disposables.push(vscode.workspace.onDidChangeConfiguration(event => {
+	disposables.push(vscode.workspace.onDidChangeConfiguration(() => {
 		const config = vscode.workspace.getConfiguration("vasp-support");
 		if (!config.get("poscar.linting.enabled")) {
 			collection.clear();

@@ -135,7 +135,7 @@ function tokenizeConstLine(line: vscode.TextLine, test?: RegExp): Token[] {
             tokens.forEach(t => t.type = "invalid");
         } else {
             let foundComment = false;
-            for (let t of tokens) {
+            for (const t of tokens) {
                 foundComment ||= /^[#!%]/.test(t.text);
                 t.type = foundComment ? "comment" : "constant";
             }   

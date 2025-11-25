@@ -1,8 +1,7 @@
 import * as vscode from 'vscode';
 import { MathConverter } from './math-converter';
 import TurndownService from 'turndown';
-
-const turndownPluginGfm = require('@joplin/turndown-plugin-gfm');
+import { gfm } from '@joplin/turndown-plugin-gfm';
 
 export class HtmlToMarkdownConverter {
     private mathConverter: MathConverter;
@@ -22,7 +21,7 @@ export class HtmlToMarkdownConverter {
             emDelimiter: "*",
             hr: "---"
         });
-        turndownService.use(turndownPluginGfm.tables);
+        turndownService.use(gfm);
         
         const svgToDataUri = function(svg: string): string {
             const newSvg = svg.replace(/="currentColor"/g, `="${getTextColor()}"`);
@@ -30,11 +29,11 @@ export class HtmlToMarkdownConverter {
         };
     
         turndownService.addRule("math", {
-            filter: (node, options) => {
+            filter: (node) => {
                 return node.nodeName.toLowerCase() === "span"
                     && Boolean(node.getAttribute("class")?.split(/\s+/)?.includes("mwe-math-element"));
             },
-            replacement: (content, node, options) => {
+            replacement: (content, node) => {
                 const tex = node.querySelector("math[alttext]")?.getAttribute("alttext");
                 if (tex) {
                     const svg = this.mathConverter.convert(tex);

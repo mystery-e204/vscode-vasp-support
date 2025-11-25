@@ -23,7 +23,7 @@ const poscarBlockTitles: Readonly<Record<PoscarBlockType, string>> = {
 
 export function registerPoscarSemanticTokensProvider(selector: vscode.DocumentSelector): vscode.Disposable {
     return vscode.languages.registerDocumentSemanticTokensProvider(selector, {
-		provideDocumentSemanticTokens(document, cancel) {
+		provideDocumentSemanticTokens(document) {
 			const builder = new vscode.SemanticTokensBuilder(tokensLegend);
 			const poscarLines = parsePoscar(document);
 			poscarLines.forEach(poscarLine => {
@@ -38,9 +38,9 @@ export function registerPoscarSemanticTokensProvider(selector: vscode.DocumentSe
 	}, tokensLegend);
 }
 
-export function registerPoscarCodeLensProvider(selector: vscode.DocumentSelector): vscode.Disposable {
+export function registerPoscarCodeLensProvider(): vscode.Disposable {
     return vscode.languages.registerCodeLensProvider("poscar", {
-        provideCodeLenses(document, cancel): vscode.CodeLens[] {
+        provideCodeLenses(document): vscode.CodeLens[] {
             const codeLenses: vscode.CodeLens[] = [];
             function addCodeLense(type: PoscarBlockType, line: number) {
                 codeLenses.push(new vscode.CodeLens(

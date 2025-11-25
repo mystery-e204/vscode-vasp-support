@@ -15,7 +15,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	try {
 		context.subscriptions.push(registerPoscarSemanticTokensProvider("poscar"));
-		context.subscriptions.push(registerPoscarCodeLensProvider("poscar"));
+		context.subscriptions.push(registerPoscarCodeLensProvider());
 		context.subscriptions.push(...registerPoscarLinter("poscar"));
 		logger.info('POSCAR providers registered');
 
@@ -24,12 +24,10 @@ export async function activate(context: vscode.ExtensionContext) {
 		logger.info(`Loaded ${incarTags.length} INCAR tags from cache`);
 		let incarHovers = new Map(incarTags.map(t => [t.name, t.getHoverText(baseUrl)]));
 
-		const hoverProvider = vscode.languages.registerHoverProvider("incar", {
-			provideHover(document, position, cancel) {
-				const range = document.getWordRangeAtPosition(position);
-				const word = document.getText(range).toUpperCase();
-
-				const markdown = incarHovers.get(word);
+	const hoverProvider = vscode.languages.registerHoverProvider("incar", {
+		provideHover(document, position) {
+			const range = document.getWordRangeAtPosition(position);
+			const word = document.getText(range).toUpperCase();				const markdown = incarHovers.get(word);
 				return markdown ? new vscode.Hover(markdown) : null;
 			}
 		});
@@ -90,7 +88,7 @@ async function readIncarTags(uri: vscode.Uri): Promise<IncarTag[]> {
 		const buffer = await vscode.workspace.fs.readFile(uri);
 		const objList: Record<string, string>[] = JSON.parse(buffer.toString());
 		return objList.map(obj => IncarTag.fromObject(obj));
-	} catch (error) {
+	} catch {
 		// File doesn't exist or is corrupted - return empty array
 		// This is expected on first run
 		logger.info('No cached INCAR tags found (expected on first run)');

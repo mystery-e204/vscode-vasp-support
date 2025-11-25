@@ -50,7 +50,7 @@ export class IncarTag {
                     break;
                 case Mode.default:
                     if (line) {
-                        let match = line.match(RegExp(`^Default: *(\\**${incarTag}\\** *=)? *(.*)`));
+                        const match = line.match(RegExp(`^Default: *(\\**${incarTag}\\** *=)? *(.*)`));
                         if (match) {
                             incarTag.defaultValue = match[2];
                             mode = Mode.description;

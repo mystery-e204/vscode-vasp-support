@@ -12,7 +12,7 @@ interface WikiPage {
 async function fetchIncarTagPageIDs(bot: Mwn): Promise<number[]> {
     const pageIds: number[] = [];
 
-    for await (let response of bot.continuedQueryGen({
+    for await (const response of bot.continuedQueryGen({
         format: "json",
         action: "query",
         list: "categorymembers",
@@ -22,10 +22,10 @@ async function fetchIncarTagPageIDs(bot: Mwn): Promise<number[]> {
     })) {
         if (response.query) {
             pageIds.push(...
-                response.query.categorymembers.filter((member: any) => {
+                response.query.categorymembers.filter((member: { title: string }) => {
                     const title: string = member.title;
                     return !title.startsWith("Construction:");
-                }).map((member: any) => member.pageid)
+                }).map((member: { pageid: number }) => member.pageid)
             );
         }
     }
@@ -36,7 +36,7 @@ async function fetchIncarTagPageIDs(bot: Mwn): Promise<number[]> {
 async function fetchIncarTagWikiPages(bot: Mwn, pageIds: number[]): Promise<WikiPage[]> {
     const wikiPages: WikiPage[] = [];
 
-    for await (let response of bot.massQueryGen({
+    for await (const response of bot.massQueryGen({
         format: "json",
         action: "query",
         pageids: pageIds,
@@ -45,9 +45,9 @@ async function fetchIncarTagWikiPages(bot: Mwn, pageIds: number[]): Promise<Wiki
         const $ = cheerio.load(response.query?.export, {
             xmlMode: true
         });
-        for (let page of $("page")) {
+        for (const page of $("page")) {
             const title = $(page).find("title").first().text().replace(/ /g, "_");
-            let body = $(page).find("text").first().text();
+            const body = $(page).find("text").first().text();
 
             let maxEnd = body.lastIndexOf("\n");
             maxEnd = maxEnd >= 0 ? maxEnd : body.length;
