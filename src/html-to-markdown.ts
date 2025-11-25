@@ -33,7 +33,7 @@ export class HtmlToMarkdownConverter {
                 return node.nodeName.toLowerCase() === "span"
                     && Boolean(node.getAttribute("class")?.split(/\s+/)?.includes("mwe-math-element"));
             },
-            replacement: (content, node) => {
+            replacement: (_, node) => {
                 const tex = node.querySelector("math[alttext]")?.getAttribute("alttext");
                 if (tex) {
                     const svg = this.mathConverter.convert(tex);
