@@ -6,13 +6,15 @@ import { gfm } from '@joplin/turndown-plugin-gfm';
 export class HtmlToMarkdownConverter {
     private mathConverter: MathConverter;
 	private turndownService: TurndownService;
+    private relativeURL?: string;
 
     constructor(mathConverter: MathConverter) {
         this.mathConverter = mathConverter;
 		this.turndownService = this.createTurndownService();
     }
 
-    convert(html: string): string {
+    convert(html: string, relativeURL?: string): string {
+        this.relativeURL = relativeURL;
 		return this.turndownService.turndown(html);
     }
 
@@ -49,9 +51,21 @@ export class HtmlToMarkdownConverter {
                 return node.nodeName.toLowerCase() === "code"
                     && node.querySelector("a") !== null;
             },
-            replacement: (content) => {                
+            replacement: (content) => {
                 // Just return the content without the code block wrapper
                 return content;
+            }
+        });
+
+        // Handle links to subsections (starting with #)
+        turndownService.addRule("subsectionLinks", {
+            filter: (node) => {
+                return node.nodeName.toLowerCase() === "a"
+                    && node.getAttribute("href")?.startsWith("#");
+            },
+            replacement: (content, node) => {
+                const href = this.relativeURL + node.getAttribute("href");
+                return `[${content}](${href})`;
             }
         });
 

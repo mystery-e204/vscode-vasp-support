@@ -93,7 +93,7 @@ export async function fetchIncarTags(baseUrl: string): Promise<IncarTag[]> {
 
     const incarTags = new Array<IncarTag>();
 	htmlMap.forEach((val, key) => {
-		const markdownStr = htmlToMarkdownConverter.convert(val);
+		const markdownStr = htmlToMarkdownConverter.convert(val, `/wiki/${key}`);
 		incarTags.push(IncarTag.fromMarkdown(markdownStr, key));
 	});
 
