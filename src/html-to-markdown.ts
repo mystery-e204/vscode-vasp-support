@@ -43,6 +43,18 @@ export class HtmlToMarkdownConverter {
             }
         });
 
+        // Handle code blocks that contain links - just remove the code block and keep the content
+        turndownService.addRule("codeWithLinks", {
+            filter: (node) => {
+                return node.nodeName.toLowerCase() === "code"
+                    && node.querySelector("a") !== null;
+            },
+            replacement: (content) => {                
+                // Just return the content without the code block wrapper
+                return content;
+            }
+        });
+
 		return turndownService;
     }
 }
